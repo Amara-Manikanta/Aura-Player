@@ -1,0 +1,48 @@
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Xcode / iOS
+DerivedData/
+*.xcuserstate
+project.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.xcbkptlist
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager (macOS)
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# Android / Gradle
+.gradle/
+build/
+*/build/
+*/*/build/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+*.keystore
+
+# JetBrains / Android Studio
+.idea/
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+
+# Output / Logs
+*.log
