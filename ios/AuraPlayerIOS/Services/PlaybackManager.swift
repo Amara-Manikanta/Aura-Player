@@ -47,8 +47,10 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     public override init() {
         super.init()
         setupAudioSession()
+        setupAudioSession()
         setupRemoteCommands()
         setupWebPlayer()
+        setupLifecycleObservers()
         
         // Initial track readiness
         if let first = PlaylistStore.shared.favoritesPlaylist?.tracks.first ?? PlaylistStore.shared.playlists.first(where: { !$0.tracks.isEmpty })?.tracks.first {
@@ -70,10 +72,40 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     private func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay, .mixWithOthers])
+            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay])
             try session.setActive(true)
         } catch {
             print("Failed to activate AVAudioSession: \(error)")
+        }
+    }
+    
+    private func setupLifecycleObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleAppDidEnterBackground() {
+        if isPlaying {
+            BackgroundAudioKeepAlive.shared.start()
+            webView.evaluateJavaScript("if (window.userWantsPlaying && player && player.playVideo) { player.playVideo(); }", completionHandler: nil)
+            updateNowPlayingInfo()
+        }
+    }
+    
+    @objc private func handleAppWillEnterForeground() {
+        if isPlaying {
+            webView.evaluateJavaScript("if (window.userWantsPlaying && player && player.playVideo) { player.playVideo(); }", completionHandler: nil)
+            updateNowPlayingInfo()
         }
     }
     
@@ -120,9 +152,21 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         <body>
           <div id="player"></div>
           <script>
+            // Neutralize Page Visibility API so YouTube never auto-pauses on screen lock or backgrounding
+            try {
+              Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+              Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+              Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+              window.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);
+              window.addEventListener('webkitvisibilitychange', function(e) { e.stopImmediatePropagation(); }, true);
+              window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
+              window.addEventListener('pagehide', function(e) { e.stopImmediatePropagation(); }, true);
+            } catch(e) {}
+
             var player;
             var isReady = false;
             var timeInterval = null;
+            window.userWantsPlaying = \(autoPlay ? "true" : "false");
 
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('player', {
@@ -153,6 +197,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
               try { event.target.unMute(); } catch(e){}
               try { event.target.setVolume(100); } catch(e){}
               if (\(autoPlay)) {
+                window.userWantsPlaying = true;
                 event.target.playVideo();
               }
               startTimeTracker();
@@ -160,13 +205,27 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
 
             function onPlayerStateChange(event) {
               if (event.data === 1) { // Playing
+                window.userWantsPlaying = true;
                 try { player.unMute(); } catch(e){}
                 try { player.setVolume(100); } catch(e){}
                 startTimeTracker();
-              } else {
+                window.webkit.messageHandlers.playerState.postMessage(event.data);
+              } else if (event.data === 2) { // Paused
+                if (window.userWantsPlaying) {
+                  // Prevent unwanted background auto-pausing by WebKit / YouTube
+                  setTimeout(function() {
+                    if (window.userWantsPlaying && player && player.playVideo) {
+                      player.playVideo();
+                    }
+                  }, 100);
+                  return;
+                }
                 stopTimeTracker();
+                window.webkit.messageHandlers.playerState.postMessage(event.data);
+              } else if (event.data === 0) { // Ended
+                stopTimeTracker();
+                window.webkit.messageHandlers.playerState.postMessage(event.data);
               }
-              window.webkit.messageHandlers.playerState.postMessage(event.data);
             }
 
             function onPlayerError(event) {
@@ -192,6 +251,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             }
 
             function playVideo() {
+              window.userWantsPlaying = true;
               if (player && player.playVideo) {
                 try { player.unMute(); } catch(e){}
                 try { player.setVolume(100); } catch(e){}
@@ -200,6 +260,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             }
 
             function pauseVideo() {
+              window.userWantsPlaying = false;
               if (player && player.pauseVideo) player.pauseVideo();
             }
 
