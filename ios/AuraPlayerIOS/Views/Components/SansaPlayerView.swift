@@ -200,9 +200,10 @@ public struct SansaPlayerView: View {
                                 // Keep WebView mounted for audio & video
                                 YouTubeWebPlayerView(playback: playback)
                                     .aspectRatio(16/9, contentMode: .fit)
-                                    .frame(maxWidth: .infinity, maxHeight: 150)
-                                    .cornerRadius(10)
-                                    .padding(.horizontal, 12)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: playback.displayMode == .video ? 188 : 1)
+                                    .cornerRadius(8)
+                                    .padding(.horizontal, 4)
                                     .opacity(playback.displayMode == .video ? 1.0 : 0.001)
                                     .allowsHitTesting(playback.displayMode == .video)
                                 
@@ -268,22 +269,40 @@ public struct SansaPlayerView: View {
                                         .padding(.horizontal, 8)
                                 }
                             }
-                            .frame(height: 120)
+                            .frame(height: playback.displayMode == .video ? 190 : 124)
                             
                             // Track Info
-                            VStack(spacing: 2) {
-                                Text(track.title)
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundColor(SansaTheme.lcdTextPrimary)
-                                    .lineLimit(1)
-                                
-                                Text(track.artist)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(SansaTheme.lcdTextCyan)
-                                    .lineLimit(1)
+                            if playback.displayMode == .video {
+                                HStack {
+                                    Text(track.title)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(SansaTheme.lcdTextPrimary)
+                                        .lineLimit(1)
+                                    
+                                    Spacer()
+                                    
+                                    Text(track.artist)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(SansaTheme.lcdTextCyan)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.top, 2)
+                            } else {
+                                VStack(spacing: 2) {
+                                    Text(track.title)
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(SansaTheme.lcdTextPrimary)
+                                        .lineLimit(1)
+                                    
+                                    Text(track.artist)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(SansaTheme.lcdTextCyan)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.top, 2)
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.top, 2)
                             
                             // Retro LCD Scrubber Bar
                             VStack(spacing: 3) {
@@ -318,87 +337,151 @@ public struct SansaPlayerView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 10)
                         }
                     }
-                    .frame(height: 250)
-                    .padding(.horizontal, 18)
+                    .frame(height: playback.displayMode == .video ? 310 : 258)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: playback.displayMode)
+                    .padding(.horizontal, 16)
                     
                     Spacer(minLength: 4)
                     
                     // ==========================================
-                    // 2. THE ICONIC VIRTUAL ROTATOR WHEEL
+                    // 2. HARDWARE CONTROLS AROUND THE ROTATOR WHEEL
                     // ==========================================
-                    SansaRotatorWheel(
-                        diameter: 195,
-                        isCenterActive: playback.isPlaying,
-                        onRotate: { step in
-                            handleWheelRotation(steps: step)
-                        },
-                        onCenterTap: {
-                            playback.togglePlayPause()
+                    VStack(spacing: 8) {
+                        // Top Row Around Rotator
+                        HStack {
+                            // Top-Left: VOL / SCRUB Wheel Mode
+                            SansaHardwareButton(
+                                icon: wheelMode == .seek ? "speaker.wave.2.fill" : "forward.fill",
+                                label: wheelMode == .seek ? "VOL" : "SCRUB",
+                                isActive: wheelMode == .volume,
+                                width: 48
+                            ) {
+                                Haptics.light()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    wheelMode = (wheelMode == .seek) ? .volume : .seek
+                                    showFeedback(text: wheelMode == .seek ? "MODE: SCRUB TIME" : "MODE: VOLUME CONTROL")
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            // Top-Center: Authentic Sansa MENU / MODE Button
+                            SansaHardwareButton(
+                                icon: playback.displayMode == .video ? "video.fill" : (playback.displayMode == .lyrics ? "quote.bubble.fill" : "text.justify"),
+                                label: "MENU",
+                                isActive: playback.displayMode != .audio,
+                                width: 62
+                            ) {
+                                Haptics.light()
+                                cycleDisplayMode()
+                            }
+                            
+                            Spacer()
+                            
+                            // Top-Right: Favorite Heart
+                            SansaHardwareButton(
+                                icon: playlistStore.isTrackFavorite(track) ? "heart.fill" : "heart",
+                                label: "FAV",
+                                isActive: playlistStore.isTrackFavorite(track),
+                                iconColor: playlistStore.isTrackFavorite(track) ? SansaTheme.neonBlue : .white,
+                                width: 48
+                            ) {
+                                Haptics.light()
+                                playlistStore.toggleFavorite(track: track)
+                                showFeedback(text: playlistStore.isTrackFavorite(track) ? "FAVORITE: ADDED ♥" : "FAVORITE: REMOVED")
+                            }
                         }
-                    )
-                    .padding(.vertical, 4)
-                    
-                    Spacer(minLength: 4)
-                    
-                    // ==========================================
-                    // 3. TACTILE HARDWARE BUTTONS BELOW
-                    // ==========================================
-                    HStack(spacing: 14) {
-                        // Previous Track
-                        SansaHardwareButton(icon: "backward.fill", label: "|<<") {
-                            Haptics.light()
-                            playback.playPrevious()
-                        }
+                        .padding(.horizontal, 32)
                         
-                        // Play / Pause
-                        SansaHardwareButton(
-                            icon: playback.isPlaying ? "pause.fill" : "play.fill",
-                            label: "PLAY",
-                            isAccent: true
-                        ) {
-                            Haptics.medium()
-                            playback.togglePlayPause()
-                        }
-                        
-                        // Next Track
-                        SansaHardwareButton(icon: "forward.fill", label: ">>|") {
-                            Haptics.light()
-                            playback.playNext()
-                        }
-                        
-                        // Menu Button: Cycles Display Mode (Audio -> Video -> Lyrics)
-                        SansaHardwareButton(icon: "text.justify", label: "MODE") {
-                            Haptics.light()
-                            cycleDisplayMode()
-                        }
-                        
-                        // Wheel Function Toggle: Scrub Time vs Volume
-                        SansaHardwareButton(
-                            icon: wheelMode == .seek ? "forward.fill" : "speaker.wave.2.fill",
-                            label: wheelMode == .seek ? "SCRUB" : "VOL"
-                        ) {
-                            Haptics.light()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                wheelMode = (wheelMode == .seek) ? .volume : .seek
-                                showFeedback(text: wheelMode == .seek ? "MODE: SCRUB TIME" : "MODE: VOLUME CONTROL")
+                        // Middle Row: Left Button, Central Rotator Wheel, Right Button
+                        HStack(spacing: 12) {
+                            // Left: PREV |<<
+                            SansaHardwareButton(
+                                icon: "backward.fill",
+                                label: "PREV",
+                                width: 48,
+                                height: 48
+                            ) {
+                                Haptics.light()
+                                playback.playPrevious()
+                                showFeedback(text: "TRACK: PREV")
+                            }
+                            
+                            // The Iconic Virtual Rotator Wheel with Neon Ring
+                            SansaRotatorWheel(
+                                diameter: 172,
+                                isCenterActive: playback.isPlaying,
+                                onRotate: { step in
+                                    handleWheelRotation(steps: step)
+                                },
+                                onCenterTap: {
+                                    playback.togglePlayPause()
+                                    showFeedback(text: playback.isPlaying ? "STATE: PAUSED" : "STATE: PLAYING")
+                                }
+                            )
+                            
+                            // Right: NEXT >>|
+                            SansaHardwareButton(
+                                icon: "forward.fill",
+                                label: "NEXT",
+                                width: 48,
+                                height: 48
+                            ) {
+                                Haptics.light()
+                                playback.playNext()
+                                showFeedback(text: "TRACK: NEXT")
                             }
                         }
                         
-                        // Favorite Heart
-                        SansaHardwareButton(
-                            icon: playlistStore.isTrackFavorite(track) ? "heart.fill" : "heart",
-                            label: "FAV",
-                            iconColor: playlistStore.isTrackFavorite(track) ? SansaTheme.neonBlue : .white
-                        ) {
-                            Haptics.light()
-                            playlistStore.toggleFavorite(track: track)
+                        // Bottom Row Around Rotator
+                        HStack {
+                            // Bottom-Left: SHUFFLE
+                            SansaHardwareButton(
+                                icon: "shuffle",
+                                label: "SHUFFLE",
+                                isActive: playback.isShuffled,
+                                width: 48
+                            ) {
+                                Haptics.light()
+                                playback.toggleShuffle()
+                                showFeedback(text: playback.isShuffled ? "SHUFFLE: ON" : "SHUFFLE: OFF")
+                            }
+                            
+                            Spacer()
+                            
+                            // Bottom-Center: PLAY / PAUSE (Prominent Accent Button)
+                            SansaHardwareButton(
+                                icon: playback.isPlaying ? "pause.fill" : "play.fill",
+                                label: playback.isPlaying ? "PAUSE" : "PLAY",
+                                isAccent: true,
+                                width: 62
+                            ) {
+                                Haptics.medium()
+                                playback.togglePlayPause()
+                                showFeedback(text: playback.isPlaying ? "STATE: PAUSED" : "STATE: PLAYING")
+                            }
+                            
+                            Spacer()
+                            
+                            // Bottom-Right: REPEAT
+                            SansaHardwareButton(
+                                icon: playback.repeatMode == 2 ? "repeat.1" : "repeat",
+                                label: playback.repeatMode == 2 ? "REP 1" : (playback.repeatMode == 1 ? "REP ALL" : "REPEAT"),
+                                isActive: playback.repeatMode > 0,
+                                width: 48
+                            ) {
+                                Haptics.light()
+                                playback.repeatMode = (playback.repeatMode + 1) % 3
+                                let msg = playback.repeatMode == 2 ? "REPEAT: 1 TRACK" : (playback.repeatMode == 1 ? "REPEAT: ALL" : "REPEAT: OFF")
+                                showFeedback(text: msg)
+                            }
                         }
+                        .padding(.horizontal, 32)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 20)
                 }
             }
             .sheet(isPresented: $showAddToPlaylist) {
@@ -471,46 +554,55 @@ private struct SansaHardwareButton: View {
     let icon: String
     let label: String
     var isAccent: Bool = false
+    var isActive: Bool = false
     var iconColor: Color = .white
+    var width: CGFloat = 48
+    var height: CGFloat = 44
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 11)
                         .fill(
                             LinearGradient(
                                 colors: isAccent
                                     ? [Color(hex: 0x00A3FF), Color(hex: 0x0055D4)]
-                                    : [Color(hex: 0x2A2E3D), Color(hex: 0x181A22)],
+                                    : (isActive
+                                        ? [Color(hex: 0x1E3A58), Color(hex: 0x102133)]
+                                        : [Color(hex: 0x2A2E3D), Color(hex: 0x181A22)]),
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .frame(width: 46, height: 44)
+                        .frame(width: width, height: height)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10)
+                            RoundedRectangle(cornerRadius: 11)
                                 .stroke(
-                                    isAccent ? SansaTheme.neonBlue.opacity(0.8) : SansaTheme.buttonBorder,
+                                    isAccent
+                                        ? SansaTheme.neonBlue.opacity(0.85)
+                                        : (isActive ? SansaTheme.neonBlue.opacity(0.65) : SansaTheme.buttonBorder),
                                     lineWidth: 1
                                 )
                         )
                         .shadow(
-                            color: isAccent ? SansaTheme.neonBlue.opacity(0.5) : Color.black.opacity(0.4),
-                            radius: isAccent ? 8 : 4,
+                            color: isAccent
+                                ? SansaTheme.neonBlue.opacity(0.55)
+                                : (isActive ? SansaTheme.neonBlue.opacity(0.35) : Color.black.opacity(0.4)),
+                            radius: isAccent ? 8 : (isActive ? 6 : 4),
                             x: 0,
                             y: 2
                         )
                     
                     Image(systemName: icon)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(iconColor)
+                        .foregroundColor(isAccent ? .white : (isActive ? SansaTheme.neonBlue : iconColor))
                 }
                 
                 Text(label)
                     .font(.system(size: 7.5, weight: .bold, design: .monospaced))
-                    .foregroundColor(SansaTheme.lcdTextSecondary)
+                    .foregroundColor(isActive ? SansaTheme.neonBlue : SansaTheme.lcdTextSecondary)
                     .tracking(0.5)
             }
         }
