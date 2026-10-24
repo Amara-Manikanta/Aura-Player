@@ -5,6 +5,9 @@ public struct FullPlayerSheet: View {
     @ObservedObject var playlistStore: PlaylistStore
     @Environment(\.dismiss) private var dismiss
     
+    @AppStorage("playerTheme") private var playerTheme: PlayerTheme = .modern
+    @State private var showSettings: Bool = false
+    
     @State private var isDraggingSlider: Bool = false
     @State private var sliderValue: Double = 0
     @State private var showAddToPlaylist: Bool = false
@@ -40,88 +43,115 @@ public struct FullPlayerSheet: View {
         
         return AnyView(
             ZStack {
-                // Background AMOLED Black and Warm Ambient Gradient
-                AuraTheme.backgroundDark.ignoresSafeArea()
-                AuraTheme.ambientGradient.ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Top Bar (Collapse Chevron, Mode Selector Pill, Menu)
-                    HStack {
-                        Button {
-                            Haptics.light()
-                            dismiss()
-                        } label: {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(AuraTheme.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                        
-                        Spacer()
-                        
-                        // Audio / Video / Lyrics Segmented Pill
-                        HStack(spacing: 2) {
-                            ForEach(PlaybackDisplayMode.allCases, id: \.self) { mode in
-                                Button {
-                                    Haptics.light()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                        playback.displayMode = mode
+                if playerTheme == .sansa {
+                    SansaPlayerView(
+                        playback: playback,
+                        playlistStore: playlistStore,
+                        onDismiss: { dismiss() },
+                        onOpenSettings: { showSettings = true }
+                    )
+                } else {
+                    // Background AMOLED Black and Warm Ambient Gradient
+                    AuraTheme.backgroundDark.ignoresSafeArea()
+                    AuraTheme.ambientGradient.ignoresSafeArea()
+                    
+                    VStack(spacing: 0) {
+                        // Top Bar (Collapse Chevron, Mode Selector Pill, Menu)
+                        HStack {
+                            Button {
+                                Haptics.light()
+                                dismiss()
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(AuraTheme.textSecondary)
+                                    .frame(width: 44, height: 44)
+                            }
+                            
+                            Spacer()
+                            
+                            // Audio / Video / Lyrics Segmented Pill
+                            HStack(spacing: 2) {
+                                ForEach(PlaybackDisplayMode.allCases, id: \.self) { mode in
+                                    Button {
+                                        Haptics.light()
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                            playback.displayMode = mode
+                                        }
+                                    } label: {
+                                        Text(mode.rawValue)
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(playback.displayMode == mode ? .white : AuraTheme.textTertiary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 7)
+                                            .background(
+                                                playback.displayMode == mode ? AuraTheme.primary : Color.clear
+                                            )
+                                            .cornerRadius(14)
+                                            .lineLimit(1)
+                                            .fixedSize(horizontal: true, vertical: false)
                                     }
-                                } label: {
-                                    Text(mode.rawValue)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(playback.displayMode == mode ? .white : AuraTheme.textTertiary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 7)
-                                        .background(
-                                            playback.displayMode == mode ? AuraTheme.primary : Color.clear
-                                        )
-                                        .cornerRadius(14)
-                                        .lineLimit(1)
-                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
+                            .padding(3)
+                            .background(AuraTheme.surfaceElevated.opacity(0.95))
+                            .cornerRadius(17)
+                            
+                            Spacer()
+                            
+                            Menu {
+                                Button {
+                                    showAddToPlaylist = true
+                                } label: {
+                                    Label("Add to Playlist", systemImage: "text.badge.plus")
+                                }
+                                
+                                Button {
+                                    showChangeVideo = true
+                                } label: {
+                                    Label("Change Video Link", systemImage: "link")
+                                }
+                                
+                                Button {
+                                    showTrimTimes = true
+                                } label: {
+                                    Label("Trim Audio (Start/End)", systemImage: "scissors")
+                                }
+                                
+                                Button {
+                                    playlistStore.toggleFavorite(track: track)
+                                } label: {
+                                    Label(playlistStore.isTrackFavorite(track) ? "Remove from Favorites" : "Add to Favorites",
+                                          systemImage: playlistStore.isTrackFavorite(track) ? "heart.slash" : "heart")
+                                }
+                                
+                                Divider()
+                                
+                                Button {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                        playerTheme = (playerTheme == .modern ? .sansa : .modern)
+                                    }
+                                } label: {
+                                    Label(
+                                        playerTheme == .modern ? "Switch to Sansa e260 Theme" : "Switch to Modern AMOLED",
+                                        systemImage: playerTheme == .modern ? "opticaldisc.fill" : "iphone"
+                                    )
+                                }
+                                
+                                Button {
+                                    showSettings = true
+                                } label: {
+                                    Label("Player Settings...", systemImage: "gearshape.fill")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(AuraTheme.textSecondary)
+                                    .frame(width: 44, height: 44)
+                            }
                         }
-                        .padding(3)
-                        .background(AuraTheme.surfaceElevated.opacity(0.95))
-                        .cornerRadius(17)
-                        
-                        Spacer()
-                        
-                        Menu {
-                            Button {
-                                showAddToPlaylist = true
-                            } label: {
-                                Label("Add to Playlist", systemImage: "text.badge.plus")
-                            }
-                            
-                            Button {
-                                showChangeVideo = true
-                            } label: {
-                                Label("Change Video Link", systemImage: "link")
-                            }
-                            
-                            Button {
-                                showTrimTimes = true
-                            } label: {
-                                Label("Trim Audio (Start/End)", systemImage: "scissors")
-                            }
-                            
-                            Button {
-                                playlistStore.toggleFavorite(track: track)
-                            } label: {
-                                Label(playlistStore.isTrackFavorite(track) ? "Remove from Favorites" : "Add to Favorites",
-                                      systemImage: playlistStore.isTrackFavorite(track) ? "heart.slash" : "heart")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(AuraTheme.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
                     
                     Spacer(minLength: 8)
                     
@@ -323,15 +353,19 @@ public struct FullPlayerSheet: View {
                     .padding(.bottom, 28)
                 }
             }
-            .sheet(isPresented: $showAddToPlaylist) {
-                AddToPlaylistSheet(track: track, playlistStore: playlistStore)
-            }
-            .sheet(isPresented: $showChangeVideo) {
-                ChangeVideoLinkSheet(track: track, store: playlistStore, playback: playback)
-            }
-            .sheet(isPresented: $showTrimTimes) {
-                TrimTimesSheet(track: track, store: playlistStore, playback: playback)
-            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(playlistStore: playlistStore)
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            AddToPlaylistSheet(track: track, playlistStore: playlistStore)
+        }
+        .sheet(isPresented: $showChangeVideo) {
+            ChangeVideoLinkSheet(track: track, store: playlistStore, playback: playback)
+        }
+        .sheet(isPresented: $showTrimTimes) {
+            TrimTimesSheet(track: track, store: playlistStore, playback: playback)
+        }
         )
     }
     

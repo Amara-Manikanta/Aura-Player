@@ -35,9 +35,14 @@
 
 ## 🌟 Key Highlights
 
-### 🎨 Pure AMOLED Aesthetics
-- Built with a true black `#0D0D11` background and warm ambient gradients designed specifically for OLED/Super Retina displays.
-- Signature **Echo Coral** (`#ED5564`) primary theme with glowing frosted glass (glassmorphism) controls.
+### 🎨 Dual Theme Engine: Modern AMOLED & Sansa e260 Retro
+- **Modern AMOLED Theme**: Built with a true black `#0D0D11` background and warm ambient gradients designed specifically for Super Retina displays, featuring the signature **Echo Coral** (`#ED5564`) primary theme with glowing frosted glass controls.
+- **SanDisk Sansa e260 Retro Theme**: Transforms the Now Playing player into an authentic 2000s SanDisk Sansa e260 MP3 player featuring:
+  - Brushed titanium/gunmetal metallic chassis with chamfered highlights.
+  - Glossy LCD color display with live retro 8-band graphic equalizer spectrum bars.
+  - The iconic **Interactive Virtual Rotator (Scroll Wheel)** with its **glowing electric neon blue ring** (`#00D4FF`), full circular touch-drag gesture tracking, and mechanical tactile haptic clicks (`Haptics.light()`) for time scrubbing and volume adjustment!
+  - Physical-style hardware buttons (`|<<`, `▶ ||`, `>>|`, `MENU`, `VOL/SCRUB`, `FAV`).
+  - Configurable in the new **Settings & Themes** menu.
 
 ### 🎧 Unified Triple-Mode Player
 - **Audio Mode**: Displays high-res album artwork with a reactive audio visualizer.

@@ -11,6 +11,7 @@ public struct LibraryView: View {
     @State private var playlistToMerge: Playlist?
     @State private var showFileImporter: Bool = false
     @State private var showResetConfirmation: Bool = false
+    @State private var showSettings: Bool = false
     @State private var statusToast: String?
     
     public init(playlistStore: PlaylistStore, playback: PlaybackManager) {
@@ -90,6 +91,18 @@ public struct LibraryView: View {
                                     subtitle: "\(playlistStore.artistsMap.keys.count) artists",
                                     icon: "mic.fill",
                                     iconColor: Color(hex: 0x4E92DF)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button {
+                                showSettings = true
+                            } label: {
+                                LibraryShortcutRow(
+                                    title: "Settings & Themes",
+                                    subtitle: "Switch between Modern AMOLED and Sansa e260 Retro",
+                                    icon: "gearshape.fill",
+                                    iconColor: Color(hex: 0x00D4FF)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -318,6 +331,21 @@ public struct LibraryView: View {
             }
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Haptics.light()
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(AuraTheme.textSecondary)
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView(playlistStore: playlistStore)
+            }
             .alert("New Playlist", isPresented: $showNewPlaylistDialog) {
                 TextField("Playlist name", text: $newPlaylistTitle)
                 Button("Create") {
