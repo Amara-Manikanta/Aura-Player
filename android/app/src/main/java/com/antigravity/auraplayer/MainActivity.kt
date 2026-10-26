@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        repository = PlaylistRepository(applicationContext)
+        repository = PlaylistRepository.getInstance(applicationContext)
         playbackManager = PlaybackManager.getInstance(applicationContext)
 
         setContent {

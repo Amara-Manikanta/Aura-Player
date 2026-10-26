@@ -2,7 +2,7 @@ package com.antigravity.auraplayer.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,7 +18,8 @@ fun ChangeVideoLinkDialog(
     onDismiss: () -> Unit,
     onConfirm: (newVideoId: String) -> Unit
 ) {
-    var urlOrId by remember { mutableStateOf(track.youtubeId ?: "") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var urlOrId by remember { mutableStateOf(track.youtubeId?.let { "https://www.youtube.com/watch?v=$it" } ?: "") }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -46,8 +47,21 @@ fun ChangeVideoLinkDialog(
                         urlOrId = it
                         errorText = null
                     },
-                    label = { Text("YouTube URL or 11-char Video ID") },
-                    placeholder = { Text("https://www.youtube.com/watch?v=...") },
+                    label = { Text("YouTube link or video ID") },
+                    placeholder = { Text("Paste a YouTube link or video ID") },
+                    singleLine = true,
+                    trailingIcon = {
+                        // ⓧ clears the field; when empty, paste a link copied from Discover / YouTube
+                        if (urlOrId.isNotEmpty()) {
+                            IconButton(onClick = { urlOrId = ""; errorText = null }) {
+                                Icon(Icons.Default.Cancel, contentDescription = "Clear")
+                            }
+                        } else {
+                            IconButton(onClick = { pasteFromClipboard(context)?.let { urlOrId = it } }) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = NeonPurple)
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     isError = errorText != null
                 )

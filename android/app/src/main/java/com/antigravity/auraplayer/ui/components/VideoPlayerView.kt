@@ -122,7 +122,7 @@ private fun WebView.loadPlayer(cmd: VideoCommand.Load) {
           function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
               videoId: '${cmd.videoId}',
-              playerVars: { autoplay: $autoplay, start: $startSec, playsinline: 1, rel: 0, modestbranding: 1,
+              playerVars: { autoplay: $autoplay, start: $startSec, playsinline: 1, rel: 0, modestbranding: 1, controls: 0, disablekb: 1, fs: 0,
                             iv_load_policy: 3, enablejsapi: 1, origin: 'https://com.auraplayer.app' },
               events: {
                 onReady: function(e) { if ($autoplay) e.target.playVideo(); },

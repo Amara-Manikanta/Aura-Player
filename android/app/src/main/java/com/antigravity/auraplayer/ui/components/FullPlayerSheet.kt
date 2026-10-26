@@ -2,278 +2,208 @@ package com.antigravity.auraplayer.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import com.antigravity.auraplayer.model.LyricLine
-import com.antigravity.auraplayer.model.MediaTrack
+import androidx.compose.ui.unit.sp
+import com.antigravity.auraplayer.data.PlaylistRepository
+import com.antigravity.auraplayer.service.DisplayMode
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Now Playing, like the iPhone app: Audio / Video / Lyrics, 👍 👎 ♥, repeat, song options. */
 @Composable
 fun FullPlayerSheet(
     playbackManager: PlaybackManager,
-    track: MediaTrack?,
-    isPlaying: Boolean,
-    positionMs: Long,
-    durationMs: Long,
-    isAudioOnly: Boolean,
-    isShuffled: Boolean,
-    syncedLyrics: List<LyricLine>?,
-    plainLyrics: String?,
-    currentLyricIndex: Int,
     onDismiss: () -> Unit,
-    onPlayPause: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onToggleAudioOnly: () -> Unit,
-    onToggleShuffle: () -> Unit,
-    onToggleFavorite: () -> Unit,
     onChangeVideo: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onEnterPiP: () -> Unit
 ) {
-    if (track == null) return
+    val context = LocalContext.current
+    val repository = remember { PlaylistRepository.getInstance(context) }
+    val track by playbackManager.currentTrack.collectAsState()
+    val isPlaying by playbackManager.isPlaying.collectAsState()
+    val positionMs by playbackManager.currentPosition.collectAsState()
+    val durationMs by playbackManager.duration.collectAsState()
+    val displayMode by playbackManager.displayMode.collectAsState()
+    val isShuffled by playbackManager.isShuffled.collectAsState()
+    val repeatMode by playbackManager.repeatMode.collectAsState()
+    val syncedLyrics by playbackManager.syncedLyrics.collectAsState()
+    val plainLyrics by playbackManager.plainLyrics.collectAsState()
+    val currentLyricIndex by playbackManager.currentLyricIndex.collectAsState()
+    val artworkUrl by playbackManager.artworkUrl.collectAsState()
+    repository.playlists.collectAsState().value   // redraw when favourites / saved video change
+    val t = track ?: return
 
-    var showLyricsTab by remember { mutableStateOf(false) }
-
-    // Modern artwork scaling animation
     val artworkScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.85f,
+        targetValue = if (isPlaying) 1f else 0.88f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "artworkScale"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NeonPurple.copy(alpha = 0.25f),
-                        BackgroundDark,
-                        BackgroundDark
-                    )
-                )
-            )
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        AuraBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Top bar: collapse, Audio / Video / Lyrics, options
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Collapse", tint = TextPrimary, modifier = Modifier.size(32.dp))
                 }
-
-                // Audio / Video Toggle Pill
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SurfaceCard)
-                        .padding(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isAudioOnly) NeonPurple else SurfaceCard)
-                            .clickable { if (!isAudioOnly) onToggleAudioOnly() }
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text("Audio", style = MaterialTheme.typography.labelSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (!isAudioOnly) NeonPink else SurfaceCard)
-                            .clickable { if (isAudioOnly) onToggleAudioOnly() }
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text("Video", style = MaterialTheme.typography.labelSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Row {
-                    if (!isAudioOnly && track.youtubeId != null) {
-                        IconButton(onClick = onEnterPiP) {
-                            Icon(Icons.Default.PictureInPictureAlt, contentDescription = "PiP", tint = TextSecondary)
-                        }
-                    }
-                    IconButton(onClick = onChangeVideo) {
-                        Icon(Icons.Default.Link, contentDescription = "Change Video", tint = TextSecondary)
-                    }
-                }
+                SegmentedTabs(
+                    options = listOf("Audio", "Video", "Lyrics"),
+                    selected = displayMode.ordinal,
+                    onSelect = { playbackManager.setDisplayMode(DisplayMode.entries[it]) },
+                    modifier = Modifier.weight(1f).padding(horizontal = 6.dp)
+                )
+                CurrentSongMenu(playbackManager, onChangeVideo, onAddToPlaylist, tint = TextPrimary)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Center Content: Vinyl/Artwork vs Video vs Lyrics
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (showLyricsTab) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (displayMode == DisplayMode.LYRICS) {
                     LyricsView(
                         syncedLyrics = syncedLyrics,
                         plainLyrics = plainLyrics,
                         currentLyricIndex = currentLyricIndex,
-                        onSeekToTime = onSeek
+                        onSeekToTime = { playbackManager.seekTo(it) }
                     )
-                } else if (!isAudioOnly && track.youtubeId != null) {
-                    // Video View
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .shadow(16.dp)
-                    ) {
-                        VideoPlayerView(playbackManager = playbackManager)
-                    }
-                } else {
-                    // Audio Mode: Modern Scalable Artwork
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .padding(24.dp)
-                            .graphicsLayer {
-                                scaleX = artworkScale
-                                scaleY = artworkScale
-                            }
-                            .shadow(24.dp, shape = RoundedCornerShape(24.dp))
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(SurfaceDark),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (track.thumbnailURL != null) {
-                            AsyncImage(
-                                model = track.thumbnailURL,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(64.dp))
+                } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
+                            VideoPlayerView(playbackManager = playbackManager)
+                        }
+                        TextButton(onClick = onEnterPiP) {
+                            Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Picture in Picture", color = TextSecondary)
                         }
                     }
+                } else {
+                    // Album cover, breathing with play / pause
+                    BoxWithConstraints(
+                        Modifier
+                            .fillMaxWidth(0.85f)
+                            .aspectRatio(1f)
+                            .graphicsLayer { scaleX = artworkScale; scaleY = artworkScale }
+                            .shadow(28.dp, RoundedCornerShape(26.dp))
+                    ) {
+                        TrackArtwork(t, maxWidth, 26.dp, overrideUrl = artworkUrl)
+                    }
                 }
-            } 
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Track Info
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = track.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = track.artist,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Progress Bar
+            // Title, singer, 👍 👎 ♥
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(t.title, color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.artist, color = TextSecondary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    t.trimLabel?.let { Text("✂ Plays $it", color = NeonPurple, fontSize = 12.sp) }
+                }
+                if (t.youtubeId != null) {
+                    val confirmed = playbackManager.isCurrentVideoConfirmed()
+                    IconButton(onClick = { playbackManager.confirmCurrentVideo() }) {
+                        Icon(if (confirmed) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = "Right video",
+                            tint = if (confirmed) SuccessGreen else TextSecondary)
+                    }
+                    IconButton(onClick = { playbackManager.rejectCurrentVideo() }) {
+                        Icon(Icons.Outlined.ThumbDown, contentDescription = "Wrong video", tint = TextSecondary)
+                    }
+                }
+                val fav = repository.isFavorite(t)
+                IconButton(onClick = { repository.toggleFavorite(t) }) {
+                    Icon(if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Favorite",
+                        tint = if (fav) NeonPurple else TextSecondary)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
             Slider(
                 value = progress,
-                onValueChange = { onSeek((it * durationMs).toLong()) },
+                onValueChange = { playbackManager.seekTo((it * durationMs).toLong()) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
-                    thumbColor = NeonPink,
-                    activeTrackColor = NeonPink,
-                    inactiveTrackColor = SurfaceCard
+                    thumbColor = Color.White,
+                    activeTrackColor = NeonPurple,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                 )
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatDuration(positionMs / 1000.0), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
                 Text(formatDuration(durationMs / 1000.0), style = MaterialTheme.typography.labelSmall, color = TextTertiary)
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Controls
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onToggleShuffle) {
-                    Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = if (isShuffled) NeonPink else TextTertiary)
+                IconButton(onClick = { playbackManager.toggleShuffle() }) {
+                    Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = if (isShuffled) NeonPurple else TextTertiary)
                 }
-                IconButton(onClick = onPrevious) {
-                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = TextPrimary, modifier = Modifier.size(48.dp))
+                IconButton(onClick = { playbackManager.playPrevious() }, modifier = Modifier.size(56.dp)) {
+                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = TextPrimary, modifier = Modifier.size(42.dp))
                 }
+                // Frosted white glass button
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
+                        .size(74.dp)
+                        .shadow(16.dp, CircleShape, ambientColor = Color(0xFF3A2E9A), spotColor = Color(0xFF3A2E9A))
                         .clip(CircleShape)
-                        .background(NeonPink)
-                        .clickable { onPlayPause() },
+                        .background(Color.White.copy(alpha = 0.88f))
+                        .border(1.5.dp, Color.White, CircleShape)
+                        .clickable { playbackManager.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play/Pause",
-                        tint = BackgroundDark,
-                        modifier = Modifier.size(40.dp)
+                        tint = BackdropTop,
+                        modifier = Modifier.size(38.dp)
                     )
                 }
-                IconButton(onClick = onNext) {
-                    Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = TextPrimary, modifier = Modifier.size(48.dp))
+                IconButton(onClick = { playbackManager.playNext() }, modifier = Modifier.size(56.dp)) {
+                    Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = TextPrimary, modifier = Modifier.size(42.dp))
                 }
-                IconButton(onClick = onToggleFavorite) {
-                    Icon(if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Favorite", tint = if (track.isFavorite) NeonPink else TextTertiary)
+                IconButton(onClick = { playbackManager.toggleRepeat() }) {
+                    Icon(
+                        if (repeatMode == 2) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (repeatMode > 0) NeonPurple else TextTertiary
+                    )
                 }
             }
         }

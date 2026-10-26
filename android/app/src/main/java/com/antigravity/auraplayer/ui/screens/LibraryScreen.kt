@@ -12,67 +12,67 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.Playlist
+import com.antigravity.auraplayer.ui.components.glass
 import com.antigravity.auraplayer.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Library, like the iPhone app: Favorites, Most Played, Recently Added, New Releases, Artists, Settings, playlists */
 @Composable
 fun LibraryScreen(
     repository: PlaylistRepository,
-    onSelectPlaylist: (String) -> Unit
+    onSelectPlaylist: (String) -> Unit,
+    onMostPlayed: () -> Unit,
+    onRecentlyAdded: () -> Unit,
+    onNewReleases: () -> Unit,
+    onArtists: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val playlists by repository.playlists.collectAsState()
+    val counts = remember(playlists) {
+        Triple(repository.mostPlayedTracks.size, repository.allUniqueTracks.size, repository.allArtists.size)
+    }
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    val favorites = playlists.firstOrNull { it.id == repository.favoritesPlaylistId }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.GraphicEq, contentDescription = null, tint = NeonPurple)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("AuraPlayer", fontWeight = FontWeight.ExtraBold)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showNewPlaylistDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "New Playlist", tint = NeonPurple)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
-            )
-        },
-        containerColor = BackgroundDark
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
-        ) {
-            item {
-                Text(
-                    text = "PLAYLISTS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 130.dp, top = 12.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Library", color = TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = onSettings, modifier = Modifier.size(44.dp).glass(RoundedCornerShape(50))) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextPrimary)
+                }
             }
+        }
+        favorites?.let { fav ->
+            item { LibraryLink(Icons.Default.Favorite, Color(0xFFFF8FB1), "Favorites", "${fav.tracks.size} tracks") { onSelectPlaylist(fav.id) } }
+        }
+        item { LibraryLink(Icons.Default.LocalFireDepartment, Color(0xFFFFB86B), "Most Played", "%,d tracks".format(counts.first), onMostPlayed) }
+        item { LibraryLink(Icons.Default.History, Color(0xFF6FE3D8), "Recently Added", "%,d tracks".format(counts.second), onRecentlyAdded) }
+        item { LibraryLink(Icons.Default.NewReleases, Color(0xFFE38CF2), "New Releases", "Latest YouTube music drops", onNewReleases) }
+        item { LibraryLink(Icons.Default.Mic, Color(0xFF8FB8FF), "Singers & Artists", "%,d artists".format(counts.third), onArtists) }
 
-            items(playlists, key = { it.id }) { pl ->
-                PlaylistCard(
-                    playlist = pl,
-                    onClick = { onSelectPlaylist(pl.id) }
-                )
+        item {
+            Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Playlists", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = { showNewPlaylistDialog = true }, modifier = Modifier.size(38.dp).background(Color.White, RoundedCornerShape(50))) {
+                    Icon(Icons.Default.Add, contentDescription = "New Playlist", tint = BackdropMid)
+                }
             }
+        }
+        items(playlists.filter { it.id != favorites?.id }, key = { it.id }) { pl ->
+            PlaylistCard(playlist = pl, onClick = { onSelectPlaylist(pl.id) })
         }
     }
 
@@ -90,83 +90,53 @@ fun LibraryScreen(
                 )
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        if (newPlaylistName.isNotBlank()) {
-                            val created = repository.addPlaylist(newPlaylistName.trim())
-                            showNewPlaylistDialog = false
-                            newPlaylistName = ""
-                            onSelectPlaylist(created.id)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple)
-                ) {
-                    Text("Create")
-                }
+                Button(onClick = {
+                    if (newPlaylistName.isNotBlank()) {
+                        val created = repository.addPlaylist(newPlaylistName.trim())
+                        showNewPlaylistDialog = false
+                        newPlaylistName = ""
+                        onSelectPlaylist(created.id)
+                    }
+                }) { Text("Create") }
             },
-            dismissButton = {
-                TextButton(onClick = { showNewPlaylistDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showNewPlaylistDialog = false }) { Text("Cancel") } }
         )
     }
 }
 
 @Composable
-fun PlaylistCard(
-    playlist: Playlist,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onClick() },
-        color = SurfaceCard.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(14.dp)
+private fun LibraryLink(icon: ImageVector, tint: Color, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().glass(RoundedCornerShape(16.dp)).clickable { onClick() }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (playlist.isBuiltIn) NeonPink.copy(alpha = 0.2f) else NeonPurple.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (playlist.isBuiltIn) Icons.Default.Favorite else Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = if (playlist.isBuiltIn) NeonPink else NeonPurple,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = playlist.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "${playlist.tracks.size} tracks",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = TextTertiary
-            )
+        Box(Modifier.size(44.dp).background(tint.copy(alpha = 0.25f), RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint)
         }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(subtitle, color = TextSecondary, fontSize = 13.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
+    }
+}
+
+@Composable
+fun PlaylistCard(playlist: Playlist, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().glass(RoundedCornerShape(16.dp)).clickable { onClick() }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(48.dp).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+            Icon(playlistIcon(playlist), null, tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(playlist.name.trim(), color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("%,d tracks".format(playlist.tracks.size), color = TextSecondary, fontSize = 13.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
     }
 }

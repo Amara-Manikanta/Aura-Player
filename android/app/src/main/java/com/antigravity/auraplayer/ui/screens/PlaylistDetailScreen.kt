@@ -19,7 +19,11 @@ import androidx.compose.ui.unit.dp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.MediaTrack
 import com.antigravity.auraplayer.model.Playlist
+import com.antigravity.auraplayer.service.DisplayMode
+import com.antigravity.auraplayer.service.PlayContext
 import com.antigravity.auraplayer.service.PlaybackManager
+import com.antigravity.auraplayer.ui.components.GlassSearchField
+import com.antigravity.auraplayer.ui.components.glass
 import com.antigravity.auraplayer.ui.components.ChangeVideoLinkDialog
 import com.antigravity.auraplayer.ui.components.MergePlaylistDialog
 import com.antigravity.auraplayer.ui.components.TrackRow
@@ -77,13 +81,9 @@ fun PlaylistDetailScreen(
         return
     }
 
-    val filteredTracks = remember(playlist.tracks, searchText) {
-        if (searchText.isBlank()) playlist.tracks
-        else playlist.tracks.filter {
-            it.title.contains(searchText, ignoreCase = true) ||
-            it.artist.contains(searchText, ignoreCase = true)
-        }
-    }
+    // Title, singer, album or movie; every word must match; spelling variants count ("Chinnadana" finds "Chinnadhana")
+    val filteredTracks = remember(playlist.tracks, searchText) { repository.filter(playlist.tracks, searchText) }
+    val context = PlayContext.FromPlaylist(playlist.id)
 
     Scaffold(
         topBar = {
@@ -137,10 +137,10 @@ fun PlaylistDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
             )
         },
-        containerColor = BackgroundDark
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { padding ->
         Column(
             modifier = Modifier
@@ -158,12 +158,12 @@ fun PlaylistDetailScreen(
                 Button(
                     onClick = {
                         playlist.tracks.firstOrNull()?.let {
-                            playbackManager.playTrack(it, playlist.tracks)
+                            playbackManager.playTrack(it, playlist.tracks, context)
                         }
                     },
                     enabled = playlist.tracks.isNotEmpty(),
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple)
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.White, contentColor = BackdropMid)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
@@ -174,12 +174,12 @@ fun PlaylistDetailScreen(
                     onClick = {
                         val shuffled = playlist.tracks.shuffled()
                         shuffled.firstOrNull()?.let {
-                            playbackManager.playTrack(it, shuffled)
+                            playbackManager.playTrack(it, shuffled, context)
                         }
                     },
                     enabled = playlist.tracks.isNotEmpty(),
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceCard)
+                    modifier = Modifier.weight(1f).height(48.dp).glass(RoundedCornerShape(50)),
+                    colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
                 ) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, tint = TextPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
@@ -187,23 +187,20 @@ fun PlaylistDetailScreen(
                 }
             }
 
-            // Search filter
-            OutlinedTextField(
+            // Search in this playlist
+            GlassSearchField(
                 value = searchText,
                 onValueChange = { searchText = it },
-                placeholder = { Text("Search songs in playlist...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = SurfaceDark,
-                    unfocusedContainerColor = SurfaceDark,
-                    focusedBorderColor = NeonPurple,
-                    unfocusedBorderColor = GlassBorder
-                )
+                placeholder = "Search in ${playlist.name.trim()}",
+                modifier = Modifier.padding(bottom = 6.dp)
             )
+            if (searchText.isNotBlank()) {
+                Text(
+                    if (filteredTracks.isEmpty()) "No songs match \"$searchText\"" else "${filteredTracks.size} of ${playlist.tracks.size} songs",
+                    color = TextTertiary, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
+                )
+            }
 
             // Tracks
             if (filteredTracks.isEmpty()) {
@@ -224,7 +221,7 @@ fun PlaylistDetailScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
                     items(filteredTracks, key = { it.id }) { track ->
@@ -233,13 +230,10 @@ fun PlaylistDetailScreen(
                             track = track,
                             isCurrent = currentTrack?.id == track.id,
                             isPlaying = isPlaying && currentTrack?.id == track.id,
-                            onPlay = {
-                                playbackManager.playTrack(track, playlist.tracks)
-                                repository.recordPlay(track)
-                            },
-                            onPlayVideo = { 
-                                playbackManager.playTrack(track)
-                                if (playbackManager.isAudioOnly.value) playbackManager.toggleAudioOnly()
+                            onPlay = { playbackManager.playTrack(track, playlist.tracks, context) },
+                            onPlayVideo = {
+                                playbackManager.setDisplayMode(DisplayMode.VIDEO)
+                                playbackManager.playTrack(track, playlist.tracks, context)
                             },
                             onToggleFavorite = {
                                 repository.toggleFavorite(track)
@@ -249,7 +243,8 @@ fun PlaylistDetailScreen(
                             },
                             onRemove = {
                                 repository.removeTrackFromPlaylist(playlist.id, track.id)
-                            }
+                            },
+                            playlistId = playlist.id
                         )
                     }
                 }
