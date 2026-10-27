@@ -11,21 +11,10 @@ public struct HomeView: View {
         self.playback = playback
     }
     
-    private var quickPickTracks: [MediaTrack] {
-        if let favs = playlistStore.favoritesPlaylist, !favs.tracks.isEmpty {
-            return favs.tracks
-        }
-        // Fall back to first available non-empty playlist
-        for pl in playlistStore.playlists where !pl.tracks.isEmpty {
-            return Array(pl.tracks.prefix(10))
-        }
-        return []
-    }
-    
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 26) {
@@ -52,76 +41,6 @@ public struct HomeView: View {
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
-                        
-                        // Featured / Quick Picks Carousel
-                        let picks = quickPickTracks
-                        if !picks.isEmpty {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Quick Picks")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(AuraTheme.textPrimary)
-                                    .padding(.horizontal, 20)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 16) {
-                                        ForEach(picks) { track in
-                                            Button {
-                                                Haptics.light()
-                                                playback.playTrack(track, inQueue: picks)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 10) {
-                                                    ZStack(alignment: .bottomTrailing) {
-                                                        RoundedRectangle(cornerRadius: 18)
-                                                            .fill(AuraTheme.surfaceElevated)
-                                                            .frame(width: 150, height: 150)
-                                                        
-                                                        if let thumb = track.effectiveThumbnailURL, let url = URL(string: thumb) {
-                                                            AsyncImage(url: url) { phase in
-                                                                if let img = phase.image {
-                                                                    img.resizable()
-                                                                        .aspectRatio(contentMode: .fill)
-                                                                        .frame(width: 150, height: 150)
-                                                                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                                                                }
-                                                            }
-                                                        } else {
-                                                            Image(systemName: "music.note")
-                                                                .font(.system(size: 40))
-                                                                .foregroundColor(AuraTheme.textTertiary)
-                                                        }
-                                                        
-                                                        Circle()
-                                                            .fill(AuraTheme.primary)
-                                                            .frame(width: 38, height: 38)
-                                                            .overlay(
-                                                                Image(systemName: "play.fill")
-                                                                    .font(.system(size: 14, weight: .bold))
-                                                                    .foregroundColor(.white)
-                                                            )
-                                                            .padding(10)
-                                                            .shadow(color: Color.black.opacity(0.4), radius: 6)
-                                                    }
-                                                    
-                                                    Text(track.title)
-                                                        .font(.system(size: 14, weight: .semibold))
-                                                        .foregroundColor(AuraTheme.textPrimary)
-                                                        .lineLimit(1)
-                                                        .frame(width: 150, alignment: .leading)
-                                                    
-                                                    Text(track.artist)
-                                                        .font(.system(size: 12))
-                                                        .foregroundColor(AuraTheme.textSecondary)
-                                                        .lineLimit(1)
-                                                        .frame(width: 150, alignment: .leading)
-                                                }
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                    .padding(.horizontal, 20)
-                                }
-                            }
-                        }
                         
                         // Playlists Grid (From macOS Library)
                         VStack(alignment: .leading, spacing: 14) {
@@ -150,8 +69,7 @@ public struct HomeView: View {
                                                 .font(.system(size: 20))
                                                 .foregroundColor(AuraTheme.primary)
                                                 .frame(width: 44, height: 44)
-                                                .background(AuraTheme.surfaceElevated)
-                                                .cornerRadius(12)
+                                                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                             
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(pl.name)
@@ -165,8 +83,7 @@ public struct HomeView: View {
                                             Spacer()
                                         }
                                         .padding(10)
-                                        .background(AuraTheme.surfaceCard)
-                                        .cornerRadius(14)
+                                        .liquidGlass(cornerRadius: 14)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -191,11 +108,11 @@ public struct HomeView: View {
                                             isCurrent: isCur,
                                             isPlaying: playback.isPlaying,
                                             onTap: {
-                                                playback.playTrack(track, inQueue: mostPlayed)
+                                                playback.playTrack(track, inQueue: mostPlayed, context: .none)
                                             },
                                             onPlayVideo: {
                                                 playback.displayMode = .video
-                                                playback.playTrack(track, inQueue: mostPlayed)
+                                                playback.playTrack(track, inQueue: mostPlayed, context: .none)
                                             },
                                             onAddToPlaylist: {
                                                 trackForPlaylistSheet = track

@@ -11,10 +11,11 @@ public struct ArtistsView: View {
     
     public var body: some View {
         ZStack {
-            AuraTheme.backgroundDark.ignoresSafeArea()
+            AuraBackground()
             
             ScrollView(showsIndicators: false) {
-                let artists = playlistStore.artistsMap.sorted { $0.key < $1.key }
+                // Each singer separately (a duet is listed under both), most songs first, like the Mac app
+                let artists = playlistStore.allArtists.map { ($0.name, $0.tracks) }
                 
                 if artists.isEmpty {
                     VStack(spacing: 12) {
@@ -32,7 +33,7 @@ public struct ArtistsView: View {
                     .padding(.top, 100)
                 } else {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                        ForEach(artists, id: \.key) { artist, tracks in
+                        ForEach(artists, id: \.0) { artist, tracks in
                             NavigationLink {
                                 ArtistDetailView(
                                     artistName: artist,
@@ -42,30 +43,8 @@ public struct ArtistsView: View {
                                 )
                             } label: {
                                 VStack(spacing: 8) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(AuraTheme.surfaceElevated)
-                                            .frame(width: 90, height: 90)
-                                            .shadow(color: AuraTheme.primary.opacity(0.15), radius: 10)
-                                        
-                                        let photoURL = playlistStore.artistPhotos[artist] ?? tracks.first?.thumbnailURL
-                                        if let photo = photoURL, let url = URL(string: photo) {
-                                            AsyncImage(url: url) { phase in
-                                                if let img = phase.image {
-                                                    img.resizable()
-                                                        .aspectRatio(contentMode: .fill)
-                                                        .frame(width: 90, height: 90)
-                                                        .clipShape(Circle())
-                                                } else {
-                                                    Image(systemName: "music.mic")
-                                                        .foregroundColor(AuraTheme.primary)
-                                                }
-                                            }
-                                        } else {
-                                            Image(systemName: "music.mic")
-                                                .foregroundColor(AuraTheme.primary)
-                                        }
-                                    }
+                                    ArtistAvatar(name: artist, size: 90, fallbackArtworkURL: tracks.first?.thumbnailURL)
+                                        .shadow(color: AuraTheme.primary.opacity(0.15), radius: 10)
                                     
                                     Text(artist)
                                         .font(.system(size: 13, weight: .semibold))

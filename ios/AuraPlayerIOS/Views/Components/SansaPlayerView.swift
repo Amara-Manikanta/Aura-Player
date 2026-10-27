@@ -197,15 +197,17 @@ public struct SansaPlayerView: View {
                             
                             // Center Screen Media Area
                             ZStack {
-                                // Keep WebView mounted for audio & video
-                                YouTubeWebPlayerView(playback: playback)
-                                    .aspectRatio(16/9, contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: playback.displayMode == .video ? 188 : 1)
-                                    .cornerRadius(8)
-                                    .padding(.horizontal, 4)
-                                    .opacity(playback.displayMode == .video ? 1.0 : 0.001)
-                                    .allowsHitTesting(playback.displayMode == .video)
+                                // Hold the video only in Video mode. A 1-point, near-transparent player counts as
+                                // invisible to WebKit, which kept pausing it (play/pause flipping by itself);
+                                // in Audio / Lyrics mode the background player keeps the music going.
+                                if playback.displayMode == .video {
+                                    YouTubeWebPlayerView(playback: playback, hostID: "sansa")
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 188)
+                                        .cornerRadius(8)
+                                        .padding(.horizontal, 4)
+                                }
                                 
                                 if playback.displayMode == .audio {
                                     HStack(spacing: 12) {
@@ -623,41 +625,32 @@ private struct HardwarePressStyle: ButtonStyle {
 private struct RetroEqBar: View {
     let isActive: Bool
     let index: Int
-    @State private var heightMultiplier: CGFloat = 0.5
-    
+
     var body: some View {
-        VStack(spacing: 1.5) {
-            ForEach(0..<8) { barIdx in
-                Rectangle()
-                    .fill(
-                        barIdx < 2
-                            ? Color.red
-                            : (barIdx < 4 ? Color.yellow : SansaTheme.lcdTextCyan)
-                    )
-                    .frame(width: 6, height: 5)
-                    .opacity(7 - barIdx < Int(heightMultiplier * 8) ? 1.0 : 0.15)
+        TimelineView(.periodic(from: .now, by: 0.15 + Double(index) * 0.08)) { context in
+            let level = isActive ? Self.level(at: context.date, index: index) : 0.2
+            VStack(spacing: 1.5) {
+                ForEach(0..<8) { barIdx in
+                    Rectangle()
+                        .fill(
+                            barIdx < 2
+                                ? Color.red
+                                : (barIdx < 4 ? Color.yellow : SansaTheme.lcdTextCyan)
+                        )
+                        .frame(width: 6, height: 5)
+                        .opacity(7 - barIdx < Int(level * 8) ? 1.0 : 0.15)
+                }
             }
-        }
-        .onAppear {
-            if isActive { animate() }
-        }
-        .onChange(of: isActive) { _, active in
-            if active { animate() }
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: level)
         }
     }
-    
-    private func animate() {
-        let delay = Double(index) * 0.08
-        Timer.scheduledTimer(withTimeInterval: 0.15 + delay, repeats: true) { timer in
-            guard isActive else {
-                timer.invalidate()
-                heightMultiplier = 0.2
-                return
-            }
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                heightMultiplier = CGFloat.random(in: 0.2...0.95)
-            }
-        }
+
+    /// Pseudo-random bar height that changes each tick; stays still when paused.
+    private static func level(at date: Date, index: Int) -> CGFloat {
+        let tick = Int(date.timeIntervalSinceReferenceDate * 7) &+ index &* 7919
+        var x = UInt64(bitPattern: Int64(tick)) &* 6364136223846793005 &+ 1442695040888963407
+        x ^= x >> 33
+        return 0.2 + CGFloat(x % 1000) / 1000 * 0.75
     }
 }
 

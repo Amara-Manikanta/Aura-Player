@@ -1,54 +1,37 @@
 import SwiftUI
 
+/// Songs uploaded to YouTube this week / this month, per language (same search and filters as the Mac app).
 public struct NewReleasesView: View {
     @ObservedObject var playlistStore: PlaylistStore
     @ObservedObject var playback: PlaybackManager
-    
-    @State private var selectedLanguage: String = "Telugu"
+
+    @AppStorage("newReleasesLanguage") private var selectedLanguage: String = "Telugu"
     @State private var period: ReleasePeriod = .week
     @State private var releases: [NewRelease] = []
     @State private var isLoading: Bool = false
-    @State private var isGridView: Bool = false
     @State private var trackForPlaylistSheet: MediaTrack?
-    
+
     private let languages = ["Telugu", "Hindi", "Tamil", "English", "Kannada", "Malayalam", "Punjabi"]
-    
+
     public init(playlistStore: PlaylistStore, playback: PlaybackManager) {
         self.playlistStore = playlistStore
         self.playback = playback
     }
-    
-    private var allTracks: [MediaTrack] {
-        releases.map { item in
-            let cleaned = MetadataCleaner.clean(title: item.video.title, artist: item.video.channel)
-            return MediaTrack(
-                title: cleaned.cleanTitle,
-                artist: cleaned.primaryArtist,
-                duration: item.video.duration,
-                sourceType: .youtube,
-                mediaType: .video,
-                originalURL: item.video.url,
-                thumbnailURL: item.video.thumbnailURL,
-                youtubeId: item.video.id
-            )
-        }
-    }
-    
+
+    private var allTracks: [MediaTrack] { releases.map { DiscoverRow.track(from: $0.video) } }
+
     public var body: some View {
         ZStack {
-            AuraTheme.backgroundDark.ignoresSafeArea()
-            
+            AuraBackground()
+
             VStack(spacing: 0) {
-                // Filter Bar
-                VStack(spacing: 12) {
-                    // Language Horizontal Scroll
+                VStack(spacing: 10) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(languages, id: \.self) { lang in
                                 Button {
                                     Haptics.light()
                                     selectedLanguage = lang
-                                    loadReleases()
                                 } label: {
                                     Text(lang)
                                         .font(.system(size: 13, weight: .semibold))
@@ -63,75 +46,43 @@ public struct NewReleasesView: View {
                         }
                         .padding(.horizontal, 16)
                     }
-                    .padding(.top, 8)
-                    
-                    // Period Picker & Layout Toggle
-                    HStack {
+
+                    HStack(spacing: 10) {
                         Picker("Period", selection: $period) {
                             ForEach(ReleasePeriod.allCases, id: \.self) { p in
                                 Text(p.rawValue).tag(p)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .onChange(of: period) { _ in
-                            loadReleases()
-                        }
-                        
+                        .frame(maxWidth: 220)
+
                         Spacer()
-                        
+
                         Button {
-                            Haptics.light()
-                            isGridView.toggle()
+                            Haptics.medium()
+                            let tracks = allTracks
+                            if let first = tracks.first {
+                                playback.playTrack(first, inQueue: tracks, context: .none)
+                            }
                         } label: {
-                            Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
-                                .foregroundColor(AuraTheme.primary)
-                                .frame(width: 36, height: 36)
-                                .background(AuraTheme.surfaceElevated)
-                                .cornerRadius(10)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    // Action Row
-                    if !releases.isEmpty {
-                        HStack {
-                            Text("\(releases.count) latest releases")
-                                .font(.system(size: 13))
-                                .foregroundColor(AuraTheme.textTertiary)
-                            Spacer()
-                            Button {
-                                Haptics.medium()
-                                let tracks = allTracks
-                                if let first = tracks.first {
-                                    playback.playTrack(first, inQueue: tracks)
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 12))
-                                    Text("Play All")
-                                        .font(.system(size: 13, weight: .bold))
-                                }
+                            Label("Play All", systemImage: "play.fill")
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 14)
-                                .padding(.vertical, 7)
+                                .padding(.vertical, 8)
                                 .background(AuraTheme.primaryGradient)
                                 .clipShape(Capsule())
-                            }
                         }
-                        .padding(.horizontal, 16)
+                        .disabled(releases.isEmpty)
                     }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.bottom, 12)
-                .background(AuraTheme.surfaceCard.opacity(0.85))
-                
-                Divider().overlay(AuraTheme.glassBorder)
-                
-                // Content
-                if isLoading {
+                .padding(.vertical, 8)
+
+                if isLoading && releases.isEmpty {
                     VStack(spacing: 16) {
                         ProgressView().tint(AuraTheme.primary)
-                        Text("Discovering latest \(selectedLanguage) music...")
+                        Text("Searching YouTube for new \(selectedLanguage) songs…")
                             .font(.system(size: 14))
                             .foregroundColor(AuraTheme.textSecondary)
                     }
@@ -139,111 +90,64 @@ public struct NewReleasesView: View {
                 } else if releases.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "sparkles.tv")
-                            .font(.system(size: 48))
+                            .font(.system(size: 44))
                             .foregroundColor(AuraTheme.textTertiary)
-                        Text("No releases found")
-                            .font(.system(size: 16, weight: .semibold))
+                        Text("No new \(selectedLanguage) songs found \(period.rawValue.lowercased()).")
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(AuraTheme.textPrimary)
+                        if period == .week {
+                            Button("Show This Month") { period = .month }
+                                .foregroundColor(AuraTheme.primary)
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if isGridView {
-                    ScrollView(showsIndicators: false) {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                            ForEach(Array(releases.enumerated()), id: \.element.id) { idx, item in
-                                let track = allTracks[idx]
-                                Button {
-                                    Haptics.light()
-                                    playback.playTrack(track, inQueue: allTracks)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        ZStack(alignment: .bottomTrailing) {
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .fill(AuraTheme.surfaceElevated)
-                                                .aspectRatio(16/9, contentMode: .fit)
-                                            
-                                            if let thumb = item.video.thumbnailURL, let url = URL(string: thumb) {
-                                                AsyncImage(url: url) { phase in
-                                                    if let img = phase.image {
-                                                        img.resizable()
-                                                            .aspectRatio(contentMode: .fill)
-                                                            .aspectRatio(16/9, contentMode: .fit)
-                                                            .clipped()
-                                                            .cornerRadius(12)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        
-                                        Text(track.title)
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(AuraTheme.textPrimary)
-                                            .lineLimit(2)
-                                        
-                                        Text(track.artist)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(AuraTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(16)
-                        .padding(.bottom, 120)
-                    }
                 } else {
+                    let tracks = allTracks
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 4) {
+                        Text("\(releases.count) songs uploaded \(period.rawValue.lowercased())")
+                            .font(.system(size: 12))
+                            .foregroundColor(AuraTheme.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 4)
+                        LazyVStack(spacing: 2) {
                             ForEach(Array(releases.enumerated()), id: \.element.id) { idx, item in
-                                let track = allTracks[idx]
-                                let isCur = (playback.currentTrack?.youtubeId == track.youtubeId)
-                                TrackRowView(
-                                    track: track,
-                                    isCurrent: isCur,
+                                DiscoverRow(
+                                    video: item.video, track: tracks[idx],
+                                    views: item.views, uploadedAgo: item.uploadedAgo,
+                                    isCurrent: playback.currentTrack?.youtubeId == item.video.id,
                                     isPlaying: playback.isPlaying,
-                                    onTap: {
-                                        playback.playTrack(track, inQueue: allTracks)
-                                    },
-                                    onPlayVideo: {
-                                        playback.displayMode = .video
-                                        playback.playTrack(track, inQueue: allTracks)
-                                    },
-                                    onAddToPlaylist: {
-                                        trackForPlaylistSheet = track
-                                    },
-                                    onToggleFavorite: {
-                                        playlistStore.toggleFavorite(track: track)
-                                    }
+                                    onPlay: { playback.playTrack(tracks[idx], inQueue: tracks, context: .none) },
+                                    onAdd: { trackForPlaylistSheet = tracks[idx] }
                                 )
                             }
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.top, 8)
-                        .padding(.bottom, 120)
+                        .padding(.bottom, 20)
                     }
+                    .refreshable { await load(force: true) }
                 }
             }
         }
         .navigationTitle("New Releases")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            if releases.isEmpty {
-                loadReleases()
-            }
-        }
+        .task(id: "\(selectedLanguage)|\(period.rawValue)") { await load(force: false) }
         .sheet(item: $trackForPlaylistSheet) { t in
             AddToPlaylistSheet(track: t, playlistStore: playlistStore)
         }
     }
-    
-    private func loadReleases() {
+
+    private func load(force: Bool) async {
         isLoading = true
-        Task {
-            let res = await YouTubeService.shared.newReleases(language: selectedLanguage, period: period)
-            await MainActor.run {
-                self.releases = res
-                self.isLoading = false
-            }
+        if !force { releases = [] }
+        releases = await YouTubeService.shared.newReleases(language: selectedLanguage, period: period, forceRefresh: force)
+        isLoading = false
+    }
+
+    static func formatViews(_ n: Int) -> String {
+        switch n {
+        case 1_000_000...: return String(format: "%.1fM views", Double(n) / 1_000_000)
+        case 1_000...: return String(format: "%.0fK views", Double(n) / 1_000)
+        default: return "\(n) views"
         }
     }
 }

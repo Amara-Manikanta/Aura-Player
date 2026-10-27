@@ -22,7 +22,7 @@ public struct LibraryView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
@@ -88,7 +88,7 @@ public struct LibraryView: View {
                             } label: {
                                 LibraryShortcutRow(
                                     title: "Singers & Artists",
-                                    subtitle: "\(playlistStore.artistsMap.keys.count) artists",
+                                    subtitle: "\(playlistStore.allArtists.count) artists",
                                     icon: "mic.fill",
                                     iconColor: Color(hex: 0x4E92DF)
                                 )
@@ -100,7 +100,7 @@ public struct LibraryView: View {
                             } label: {
                                 LibraryShortcutRow(
                                     title: "Settings & Themes",
-                                    subtitle: "Switch between Modern AMOLED and Sansa e260 Retro",
+                                    subtitle: "Switch between Modern Glass and Sansa e260 Retro",
                                     icon: "gearshape.fill",
                                     iconColor: Color(hex: 0x00D4FF)
                                 )
@@ -176,12 +176,11 @@ public struct LibraryView: View {
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(14)
+                                    .liquidGlass(cornerRadius: 14)
                                     .contextMenu {
                                         Button {
                                             if let first = pl.tracks.first {
-                                                playback.playTrack(first, inQueue: pl.tracks)
+                                                playback.playTrack(first, inQueue: pl.tracks, context: .playlist(pl.id))
                                             }
                                         } label: {
                                             Label("Play", systemImage: "play.fill")
@@ -250,8 +249,7 @@ public struct LibraryView: View {
                                                 .foregroundColor(AuraTheme.textTertiary)
                                         }
                                         .padding(12)
-                                        .background(AuraTheme.surfaceCard)
-                                        .cornerRadius(12)
+                                        .liquidGlass(cornerRadius: 12)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -280,8 +278,7 @@ public struct LibraryView: View {
                                             .foregroundColor(AuraTheme.textTertiary)
                                     }
                                     .padding(12)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(12)
+                                    .liquidGlass(cornerRadius: 12)
                                 }
                                 .buttonStyle(.plain)
                                 
@@ -309,8 +306,7 @@ public struct LibraryView: View {
                                             .foregroundColor(AuraTheme.textTertiary)
                                     }
                                     .padding(12)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(12)
+                                    .liquidGlass(cornerRadius: 12)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -442,7 +438,6 @@ private struct LibraryShortcutRow: View {
                 .foregroundColor(AuraTheme.textTertiary)
         }
         .padding(12)
-        .background(AuraTheme.surfaceCard)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 14)
     }
 }

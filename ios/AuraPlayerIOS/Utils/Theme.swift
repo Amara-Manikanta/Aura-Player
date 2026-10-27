@@ -2,36 +2,90 @@ import SwiftUI
 import UIKit
 
 public enum AuraTheme {
-    // Brand Colors
-    public static let primary = Color(hex: 0xED5564)
+    // Brand Colors: soft violet, like light through tinted glass
+    public static let primary = Color(hex: 0xB9A8FF)
     public static let primaryGradient = LinearGradient(
-        colors: [Color(hex: 0xED5564), Color(hex: 0xFF758C)],
+        colors: [Color(hex: 0x9D8CFF), Color(hex: 0xC48CFF)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     public static let ambientGradient = LinearGradient(
-        colors: [Color(hex: 0xED5564).opacity(0.35), Color(hex: 0x1A0E18), Color(hex: 0x0D0D11)],
+        colors: [Color(hex: 0xC48CFF).opacity(0.35), Color.clear],
         startPoint: .top,
         endPoint: .bottom
     )
     
-    // Backgrounds & Surfaces
-    public static let backgroundDark = Color(hex: 0x0D0D11)
-    public static let surfaceCard = Color(hex: 0x181822)
-    public static let surfaceElevated = Color(hex: 0x222230)
-    public static let glassFill = Color(hex: 0x1E1E28).opacity(0.75)
-    public static let glassBorder = Color.white.opacity(0.12)
+    // Backgrounds & Surfaces: translucent white "glass" over the violet backdrop
+    public static let backgroundDark = Color(hex: 0x2A2470)
+    public static let surfaceCard = Color.white.opacity(0.10)
+    public static let surfaceElevated = Color.white.opacity(0.15)
+    public static let glassFill = Color.white.opacity(0.12)
+    public static let glassBorder = Color.white.opacity(0.28)
     
     // Typography Tints
     public static let textPrimary = Color.white
-    public static let textSecondary = Color.white.opacity(0.65)
-    public static let textTertiary = Color.white.opacity(0.38)
+    public static let textSecondary = Color.white.opacity(0.75)
+    public static let textTertiary = Color.white.opacity(0.52)
+}
+
+/// The app's backdrop: a violet → indigo gradient with soft, blurred light blobs, so glass on top has
+/// something to refract (the "liquid glass" look).
+public struct AuraBackground: View {
+    public init() {}
+    
+    public var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(hex: 0x7B6BE0), Color(hex: 0x5446B8), Color(hex: 0x2E2678)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(Color(hex: 0xE38CF2).opacity(0.55))
+                .frame(width: 340, height: 340)
+                .blur(radius: 90)
+                .offset(x: 150, y: -280)
+            Circle()
+                .fill(Color(hex: 0x6FB7FF).opacity(0.45))
+                .frame(width: 300, height: 300)
+                .blur(radius: 90)
+                .offset(x: -170, y: 60)
+            Circle()
+                .fill(Color(hex: 0xA77BFF).opacity(0.5))
+                .frame(width: 360, height: 360)
+                .blur(radius: 100)
+                .offset(x: 120, y: 380)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+public extension View {
+    /// Liquid glass panel: Apple's real glass on iOS 26, frosted material with a light rim before that.
+    @ViewBuilder
+    func liquidGlass(cornerRadius: CGFloat = 20, interactive: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            // A little white tint keeps the glass light and airy on the violet backdrop
+            let glass = Glass.regular.tint(Color.white.opacity(0.12))
+            self.glassEffect(interactive ? glass.interactive() : glass,
+                             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            self
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.08)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                )
+        }
+    }
 }
 
 // MARK: - Player Theme Selection
 
 public enum PlayerTheme: String, CaseIterable, Identifiable, Codable {
-    case modern = "Modern AMOLED"
+    case modern = "Modern Glass"
     case sansa = "Sansa e260 Retro"
     
     public var id: String { rawValue }
@@ -45,7 +99,7 @@ public enum PlayerTheme: String, CaseIterable, Identifiable, Codable {
     
     public var subtitle: String {
         switch self {
-        case .modern: return "Dark AMOLED design with Echo Coral accents"
+        case .modern: return "Liquid glass design with soft violet light"
         case .sansa: return "SanDisk Sansa e260 MP3 player with neon blue virtual rotator"
         }
     }

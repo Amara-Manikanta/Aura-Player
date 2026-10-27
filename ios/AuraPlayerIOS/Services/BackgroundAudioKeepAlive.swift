@@ -77,7 +77,9 @@ public class BackgroundAudioKeepAlive {
         isStarted = true
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay])
+            if session.category != .playback {
+                try session.setCategory(.playback, mode: .moviePlayback)
+            }
             try session.setActive(true)
         } catch {
             print("BackgroundAudioKeepAlive failed to activate audio session: \(error)")

@@ -21,7 +21,7 @@ public struct LyricsView: View {
             } else if let lyrics = playback.lyrics, lyrics.isSynced {
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: .leading, spacing: 22) {
+                        LazyVStack(alignment: .center, spacing: 22) {
                             ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
                                 let isActive = (index == playback.currentLyricIndex)
                                 let isPast = (index < playback.currentLyricIndex)
@@ -33,8 +33,9 @@ public struct LyricsView: View {
                                     Text(line.text)
                                         .font(.system(size: isActive ? 24 : 19, weight: isActive ? .bold : .medium))
                                         .foregroundColor(isActive ? AuraTheme.primary : (isPast ? AuraTheme.textSecondary.opacity(0.6) : AuraTheme.textTertiary))
-                                        .scaleEffect(isActive ? 1.05 : 0.98, anchor: .leading)
-                                        .multilineTextAlignment(.leading)
+                                        .scaleEffect(isActive ? 1.05 : 0.98, anchor: .center)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity)
                                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isActive)
                                 }
                                 .buttonStyle(.plain)
@@ -58,8 +59,9 @@ public struct LyricsView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(AuraTheme.textSecondary)
                         .lineSpacing(10)
+                        .multilineTextAlignment(.center)
                         .padding(24)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             } else {
                 VStack(spacing: 12) {

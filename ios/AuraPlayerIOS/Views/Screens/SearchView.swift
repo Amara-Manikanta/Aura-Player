@@ -9,6 +9,9 @@ public struct SearchView: View {
     @State private var searchResults: [YouTubeSearchResult] = []
     @State private var suggestions: [String] = []
     @State private var trackForPlaylistSheet: MediaTrack?
+    /// Version of the song to look for ("Any" = no preference), as on the Mac
+    @AppStorage("searchLanguage") private var searchLanguage: String = "Any"
+    private let languages = ["Any", "Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "English", "Punjabi"]
     
     public init(playlistStore: PlaylistStore, playback: PlaybackManager) {
         self.playlistStore = playlistStore
@@ -20,7 +23,7 @@ public struct SearchView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 VStack(spacing: 12) {
                     // Search Bar
@@ -51,10 +54,30 @@ public struct SearchView: View {
                         }
                     }
                     .padding(14)
-                    .background(AuraTheme.surfaceElevated)
-                    .cornerRadius(14)
+                    .liquidGlass(cornerRadius: 14)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+                    
+                    // Language of the version to find (re-runs the search)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(languages, id: \.self) { lang in
+                                Button {
+                                    searchLanguage = lang
+                                    if !searchText.isEmpty { performSearch(query: searchText) }
+                                } label: {
+                                    Text(lang)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(searchLanguage == lang ? AuraTheme.primary : AuraTheme.surfaceElevated)
+                                        .foregroundColor(searchLanguage == lang ? .white : AuraTheme.textSecondary)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
                     
                     // Suggestions Overlay (if typing and no results yet)
                     if !suggestions.isEmpty && searchResults.isEmpty && !isSearching {
@@ -85,8 +108,7 @@ public struct SearchView: View {
                                 Divider().overlay(AuraTheme.glassBorder)
                             }
                         }
-                        .background(AuraTheme.surfaceElevated)
-                        .cornerRadius(12)
+                        .liquidGlass(cornerRadius: 12)
                         .padding(.horizontal, 16)
                     }
                     
@@ -105,8 +127,7 @@ public struct SearchView: View {
                                             .foregroundColor(AuraTheme.textPrimary)
                                             .padding(.horizontal, 14)
                                             .padding(.vertical, 8)
-                                            .background(AuraTheme.surfaceElevated)
-                                            .cornerRadius(20)
+                                            .liquidGlass(cornerRadius: 20)
                                     }
                                 }
                             }
@@ -136,11 +157,11 @@ public struct SearchView: View {
                                         isCurrent: isCur,
                                         isPlaying: playback.isPlaying,
                                         onTap: {
-                                            playback.playTrack(track)
+                                            playback.playTrack(track, context: .none)
                                         },
                                         onPlayVideo: {
                                             playback.displayMode = .video
-                                            playback.playTrack(track)
+                                            playback.playTrack(track, context: .none)
                                         },
                                         onAddToPlaylist: {
                                             trackForPlaylistSheet = track
@@ -199,7 +220,10 @@ public struct SearchView: View {
         suggestions = []
         isSearching = true
         Task {
-            let res = await YouTubeService.shared.search(query: q)
+            // Same ranking as the Mac app: official video song first; lyric videos, Shorts, covers dropped
+            let lang = searchLanguage == "Any" ? nil : searchLanguage.lowercased()
+            let res = (try? await YouTubeService.shared.languageAwareSearch(
+                query: q, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
             await MainActor.run {
                 self.searchResults = res
                 self.isSearching = false

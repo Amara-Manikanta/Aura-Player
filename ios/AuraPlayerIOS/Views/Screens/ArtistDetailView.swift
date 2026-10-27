@@ -17,38 +17,14 @@ public struct ArtistDetailView: View {
     
     public var body: some View {
         ZStack {
-            AuraTheme.backgroundDark.ignoresSafeArea()
+            AuraBackground()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     // Header Avatar
                     VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(AuraTheme.surfaceElevated)
-                                .frame(width: 140, height: 140)
-                                .shadow(color: AuraTheme.primary.opacity(0.3), radius: 20)
-                            
-                            let photoURL = playlistStore.artistPhotos[artistName] ?? tracks.first?.thumbnailURL
-                            if let photo = photoURL, let url = URL(string: photo) {
-                                AsyncImage(url: url) { phase in
-                                    if let img = phase.image {
-                                        img.resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                            .frame(width: 140, height: 140)
-                                            .clipShape(Circle())
-                                    } else {
-                                        Image(systemName: "mic.fill")
-                                            .font(.system(size: 50))
-                                            .foregroundColor(AuraTheme.primary)
-                                    }
-                                }
-                            } else {
-                                Image(systemName: "mic.fill")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(AuraTheme.primary)
-                            }
-                        }
+                        ArtistAvatar(name: artistName, size: 140, fallbackArtworkURL: tracks.first?.thumbnailURL)
+                            .shadow(color: AuraTheme.primary.opacity(0.3), radius: 20)
                         
                         Text(artistName)
                             .font(.system(size: 24, weight: .bold))
@@ -65,7 +41,7 @@ public struct ArtistDetailView: View {
                         Button {
                             Haptics.medium()
                             if let first = tracks.first {
-                                playback.playTrack(first, inQueue: tracks)
+                                playback.playTrack(first, inQueue: tracks, context: .none)
                             }
                         } label: {
                             HStack {
@@ -85,7 +61,7 @@ public struct ArtistDetailView: View {
                             playback.isShuffled = true
                             let shuffled = tracks.shuffled()
                             if let first = shuffled.first {
-                                playback.playTrack(first, inQueue: shuffled)
+                                playback.playTrack(first, inQueue: shuffled, context: .none)
                             }
                         } label: {
                             HStack {
@@ -96,8 +72,7 @@ public struct ArtistDetailView: View {
                             .foregroundColor(AuraTheme.textPrimary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(AuraTheme.surfaceElevated)
-                            .cornerRadius(25)
+                            .liquidGlass(cornerRadius: 25)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -111,11 +86,11 @@ public struct ArtistDetailView: View {
                                 isCurrent: isCur,
                                 isPlaying: playback.isPlaying,
                                 onTap: {
-                                    playback.playTrack(track, inQueue: tracks)
+                                    playback.playTrack(track, inQueue: tracks, context: .none)
                                 },
                                 onPlayVideo: {
                                     playback.displayMode = .video
-                                    playback.playTrack(track, inQueue: tracks)
+                                    playback.playTrack(track, inQueue: tracks, context: .none)
                                 },
                                 onAddToPlaylist: {
                                     trackForPlaylistSheet = track

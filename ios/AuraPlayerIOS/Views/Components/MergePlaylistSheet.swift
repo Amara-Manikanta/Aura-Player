@@ -21,7 +21,7 @@ public struct MergePlaylistSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -45,8 +45,7 @@ public struct MergePlaylistSheet: View {
                             TextField("New Playlist Name", text: $newPlaylistName)
                                 .textFieldStyle(.plain)
                                 .padding(12)
-                                .background(AuraTheme.surfaceElevated)
-                                .cornerRadius(12)
+                                .liquidGlass(cornerRadius: 12)
                                 .foregroundColor(AuraTheme.textPrimary)
                         } else {
                             Picker("Target Playlist", selection: $targetPlaylistId) {
@@ -59,8 +58,7 @@ public struct MergePlaylistSheet: View {
                         }
                     }
                     .padding(16)
-                    .background(AuraTheme.surfaceCard)
-                    .cornerRadius(16)
+                    .liquidGlass(cornerRadius: 16)
                     
                     Toggle(isOn: $skipDuplicates) {
                         VStack(alignment: .leading, spacing: 2) {

@@ -6,6 +6,8 @@
 	<string>Aura Player</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Aura Player reads your Apple Music library to bring in your play counts, recently added songs and new songs.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

@@ -31,6 +31,15 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     @Published public var currentLyricIndex: Int = 0
     @Published public var isLyricsLoading: Bool = false
     
+    /// Shown to the user when a song can't be played (e.g. no video found)
+    @Published public var errorMessage: String?
+    
+    /// Where playback started from; decides which language version of a song to play
+    public enum PlayContext { case unchanged, playlist(UUID), none }
+    public private(set) var contextPlaylistId: UUID?
+    /// Videos that failed (blocked from embedding / removed) per song, so fallbacks never retry them
+    private var failedVideoIds: [UUID: Set<String>] = [:]
+    
     // Active high-res artwork URL
     @Published public var activeArtworkURL: String?
     
@@ -41,12 +50,30 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     // Global Persistent WKWebView Engine
     public var webView: WKWebView!
+    
+    /// Screens currently able to show the video, most recent last; the last one holds the player
+    @Published public private(set) var videoHosts: [String] = []
+    public var activeVideoHost: String? { videoHosts.last }
+    
+    public func registerVideoHost(_ id: String) {
+        print("[pp] host + \(id) -> \(videoHosts + [id])")
+        videoHosts.removeAll { $0 == id }
+        videoHosts.append(id)
+    }
+    
+    public func unregisterVideoHost(_ id: String) {
+        videoHosts.removeAll { $0 == id }
+    }
     private var isPlayerReady: Bool = false
     private var currentLoadedVideoId: String?
+    /// The song passed its custom end time; "next" must fire only once
+    private var trimEndHandled = false
+    /// A play is counted after 10 s of listening, not on tap
+    private var playCounted = false
+    private var appInBackground = false
     
     public override init() {
         super.init()
-        setupAudioSession()
         setupAudioSession()
         setupRemoteCommands()
         setupWebPlayer()
@@ -62,7 +89,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             self.currentIndex = 0
             loadLyrics(for: first)
             if let vid = first.youtubeId, !vid.isEmpty {
-                loadVideo(id: vid, autoPlay: false)
+                loadVideo(id: vid, autoPlay: false, startAt: first.startTime ?? 0)
             }
         }
     }
@@ -72,7 +99,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     private func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay])
+            try session.setCategory(.playback, mode: .moviePlayback)
             try session.setActive(true)
         } catch {
             print("Failed to activate AVAudioSession: \(error)")
@@ -95,6 +122,8 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     @objc private func handleAppDidEnterBackground() {
+        appInBackground = true
+        webView.evaluateJavaScript("window.appInBackground = true;", completionHandler: nil)
         if isPlaying {
             BackgroundAudioKeepAlive.shared.start()
             webView.evaluateJavaScript("if (window.userWantsPlaying && player && player.playVideo) { player.playVideo(); }", completionHandler: nil)
@@ -103,6 +132,9 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     @objc private func handleAppWillEnterForeground() {
+        appInBackground = false
+        BackgroundAudioKeepAlive.shared.stop()
+        webView.evaluateJavaScript("window.appInBackground = false;", completionHandler: nil)
         if isPlaying {
             webView.evaluateJavaScript("if (window.userWantsPlaying && player && player.playVideo) { player.playVideo(); }", completionHandler: nil)
             updateNowPlayingInfo()
@@ -117,24 +149,30 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         config.allowsAirPlayForMediaPlayback = true
         config.allowsPictureInPictureMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        // YouTube's own full-screen button (does nothing unless element full screen is enabled)
+        config.preferences.isElementFullscreenEnabled = true
         
         config.userContentController.add(self, name: "playerState")
         config.userContentController.add(self, name: "timeUpdate")
         config.userContentController.add(self, name: "playerError")
         config.userContentController.add(self, name: "playerReady")
+        config.userContentController.add(self, name: "debugLog")
         
         let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 180), configuration: config)
         wv.isOpaque = false
         wv.backgroundColor = .black
         wv.scrollView.isScrollEnabled = false
+        // Taps on the video would pause it behind the app's back; the app has its own controls
+        wv.isUserInteractionEnabled = false
         wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
         self.webView = wv
     }
     
-    public func loadVideo(id: String, autoPlay: Bool = true) {
+    /// `startAt` defaults to the current position (e.g. resuming the same song)
+    public func loadVideo(id: String, autoPlay: Bool = true, startAt: Double? = nil) {
         self.currentLoadedVideoId = id
         self.isPlayerReady = false
-        let startSec = Int(currentTrack?.startTime ?? currentTime)
+        let startSec = Int(startAt ?? currentTime)
         
         let html = """
         <!DOCTYPE html>
@@ -167,6 +205,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             var isReady = false;
             var timeInterval = null;
             window.userWantsPlaying = \(autoPlay ? "true" : "false");
+            window.appInBackground = \(appInBackground ? "true" : "false");
 
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('player', {
@@ -174,7 +213,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 playerVars: {
                   'autoplay': \(autoPlay ? 1 : 0),
                   'playsinline': 1,
-                  'controls': 1,
+                  'controls': 0,
                   'rel': 0,
                   'modestbranding': 1,
                   'enablejsapi': 1,
@@ -203,7 +242,27 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
               startTimeTracker();
             }
 
+            // iOS pauses web video on its own whenever the player view moves (player sheet, full
+            // screen, theme switch) or the app goes to the background, and resumes it on its own
+            // later. The app's buttons are the only source of truth: undo anything else.
+            var autoResumes = 0, lastAutoResume = 0;
+
+            // The next song is being looked up: the old video must stay quiet until it's replaced
+            function stopForSwitch() {
+              window.switching = true;
+              window.userWantsPlaying = false;
+              stopTimeTracker();
+              try { player.pauseVideo(); } catch(e){}
+            }
+
             function onPlayerStateChange(event) {
+              if (window.switching) return;
+              try { window.webkit.messageHandlers.debugLog.postMessage("yt state=" + event.data + " wants=" + window.userWantsPlaying + " bg=" + window.appInBackground + " hidden=" + document.hidden); } catch(e){}
+              if ((event.data === 1 || event.data === 3) && !window.userWantsPlaying) {
+                // Started by iOS, not the user: keep it paused
+                try { player.pauseVideo(); } catch(e){}
+                return;
+              }
               if (event.data === 1) { // Playing
                 window.userWantsPlaying = true;
                 try { player.unMute(); } catch(e){}
@@ -212,14 +271,19 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 window.webkit.messageHandlers.playerState.postMessage(event.data);
               } else if (event.data === 2) { // Paused
                 if (window.userWantsPlaying) {
-                  // Prevent unwanted background auto-pausing by WebKit / YouTube
-                  setTimeout(function() {
-                    if (window.userWantsPlaying && player && player.playVideo) {
-                      player.playVideo();
-                    }
-                  }, 100);
-                  return;
+                  // Paused by iOS, not the user: resume (but give up if iOS keeps pausing it)
+                  var now = Date.now();
+                  if (now - lastAutoResume > 8000) autoResumes = 0;
+                  if (autoResumes < 3) {
+                    autoResumes++;
+                    lastAutoResume = now;
+                    setTimeout(function() {
+                      if (window.userWantsPlaying && player && player.playVideo) player.playVideo();
+                    }, 150);
+                    return;
+                  }
                 }
+                window.userWantsPlaying = false;
                 stopTimeTracker();
                 window.webkit.messageHandlers.playerState.postMessage(event.data);
               } else if (event.data === 0) { // Ended
@@ -235,6 +299,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             function startTimeTracker() {
               if (timeInterval) clearInterval(timeInterval);
               timeInterval = setInterval(function() {
+                if (window.switching) return;
                 if (player && player.getCurrentTime && player.getDuration) {
                   var cur = player.getCurrentTime();
                   var dur = player.getDuration();
@@ -283,6 +348,8 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     private func handleScriptMessage(_ message: WKScriptMessage) {
+        if message.name == "debugLog" { print("[pp] js: \(message.body)"); return }
+        if message.name == "playerState" { print("[pp] state \(message.body) isPlaying=\(isPlaying) host=\(activeVideoHost ?? "-")") }
         if message.name == "playerReady" {
             self.isPlayerReady = true
             if self.isPlaying {
@@ -292,14 +359,12 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             switch state {
             case 1: // Playing
                 self.isPlaying = true
-                BackgroundAudioKeepAlive.shared.start()
+                if self.appInBackground { BackgroundAudioKeepAlive.shared.start() }
             case 2: // Paused
                 self.isPlaying = false
                 BackgroundAudioKeepAlive.shared.stop()
             case 0: // Ended
-                self.isPlaying = false
-                BackgroundAudioKeepAlive.shared.stop()
-                self.playNext()
+                handleTrackEnded()
             default:
                 break
             }
@@ -310,9 +375,15 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             self.currentTime = current
             if dur > 0 { self.duration = dur }
             
-            // Check trim end time
-            if let end = currentTrack?.endTime, end > 0, current >= end {
-                playNext()
+            if current >= 10, !playCounted, let track = currentTrack {
+                playCounted = true
+                PlaylistStore.shared.recordPlay(track: track)
+            }
+            
+            // Custom end time: move on once (time updates keep arriving until the next song loads)
+            if let end = currentTrack?.endTime, end > 0, current >= end, !trimEndHandled {
+                trimEndHandled = true
+                handleTrackEnded()
                 return
             }
             
@@ -323,22 +394,99 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         }
     }
     
+    /// The video can't be played here (owner blocked embedding, or removed): switch to the next-best
+    /// official video of the same song, never one that already failed. (Used to take the first result
+    /// for "title artist audio", which was often a different song.)
     private func handlePlayerError(_ code: Int) {
-        guard let track = currentTrack else { return }
-        print("YouTube embed error \(code) on track: \(track.title)")
-        if [101, 150, 152, 153].contains(code) {
-            // Video owner restricted embedding on this specific ID.
-            // Automatically find an alternate lyric/audio upload:
-            Task {
-                let altQuery = "\(track.title) \(track.artist) audio"
-                let results = await YouTubeService.shared.search(query: altQuery)
-                if let alt = results.first(where: { $0.id != track.youtubeId }) {
-                    print("Falling back to alternate playable video: \(alt.id)")
-                    self.currentTrack?.youtubeId = alt.id
-                    self.loadVideo(id: alt.id)
-                }
+        guard let track = currentTrack, let failedId = track.youtubeId else { return }
+        print("YouTube embed error \(code) on \(failedId) for \(track.title)")
+        failedVideoIds[track.id, default: []].insert(failedId)
+        let excluded = failedVideoIds[track.id, default: []].union(track.rejectedVideoIds ?? [])
+        let language = searchLanguage(for: track)
+        Task {
+            let alt = await YouTubeService.shared.resolveVideo(for: track, language: language, excluding: excluded)
+            guard self.currentTrack?.id == track.id else { return }
+            if let alt {
+                self.currentTrack?.youtubeId = alt
+                self.loadVideo(id: alt)
+            } else {
+                self.isPlaying = false
+                self.errorMessage = "This song's videos can't be played inside the app. Use Change Video Link to pick one."
             }
         }
+    }
+    
+    // MARK: - Video feedback (👍 / 👎)
+    
+    /// The playing video is the one saved for this song (👍 given, or added by link)
+    public var isCurrentVideoConfirmed: Bool {
+        guard let track = currentTrack, let vid = track.youtubeId,
+              let saved = PlaylistStore.shared.savedTrack(id: track.id) else { return false }
+        return saved.youtubeId == vid
+    }
+    
+    /// 👍 Right video: always play it for this song
+    public func confirmCurrentVideo() {
+        guard let track = currentTrack, let vid = track.youtubeId else { return }
+        PlaylistStore.shared.setVideo(trackId: track.id, videoId: vid)
+        objectWillChange.send()
+    }
+    
+    /// 👎 Wrong video: never pick it again for this song, switch to the next-best now
+    public func rejectCurrentVideo() {
+        guard let track = currentTrack, let vid = track.youtubeId else { return }
+        PlaylistStore.shared.rejectVideo(trackId: track.id, videoId: vid)
+        var excluded = Set(PlaylistStore.shared.savedTrack(id: track.id)?.rejectedVideoIds ?? [vid])
+        excluded.insert(vid)
+        excluded.formUnion(failedVideoIds[track.id] ?? [])
+        let language = searchLanguage(for: track)
+        let resumeAt = currentTime
+        Task {
+            let alt = await YouTubeService.shared.resolveVideo(for: track, language: language, excluding: excluded)
+            guard self.currentTrack?.id == track.id else { return }
+            if let alt {
+                self.currentTrack?.youtubeId = alt
+                self.currentTrack?.rejectedVideoIds = Array(excluded)
+                self.currentTime = resumeAt > 10 ? resumeAt : (track.startTime ?? 0)
+                self.isPlaying = true
+                self.loadVideo(id: alt, startAt: self.currentTime)
+            } else {
+                self.errorMessage = "No other official video found. Use Change Video Link to paste the right one."
+            }
+        }
+    }
+    
+    // MARK: - Language (same rules as the Mac app)
+    
+    /// "Telugu Music" → "telugu"; "" for non-Indian language playlists (play the original); nil if the name says nothing
+    static func playlistLanguage(_ name: String) -> String? {
+        let n = name.lowercased()
+        let indian: [(String, [String])] = [
+            ("telugu", ["telugu", "tollywood"]), ("tamil", ["tamil", "kollywood"]),
+            ("hindi", ["hindi", "bollywood"]), ("kannada", ["kannada", "sandalwood"]),
+            ("malayalam", ["malayalam", "mollywood"]), ("marathi", ["marathi"]),
+            ("punjabi", ["punjab"]), ("bengali", ["bengali", "bangla"])
+        ]
+        for (lang, words) in indian where words.contains(where: { n.contains($0) }) { return lang }
+        let other = ["english", "spanish", "korean", "k-pop", "kpop", "japanese", "french", "arabic", "western"]
+        if other.contains(where: { n.contains($0) }) { return "" }
+        return nil
+    }
+    
+    /// Which language version to play: the playlist it's played from ("Hindi Music" → Hindi), else the
+    /// playlists it belongs to (if they agree), else the Preferred Song Language setting (Indian songs).
+    public func searchLanguage(for track: MediaTrack) -> String? {
+        let playlists = PlaylistStore.shared.playlists
+        if let pid = contextPlaylistId,
+           let pl = playlists.first(where: { $0.id == pid }),
+           pl.tracks.contains(where: { $0.id == track.id }),
+           let lang = Self.playlistLanguage(pl.name) {
+            return lang.isEmpty ? nil : lang
+        }
+        let containing = playlists.filter { pl in pl.tracks.contains { $0.id == track.id } }
+        let langs = Set(containing.compactMap { Self.playlistLanguage($0.name) })
+        if langs.count == 1, let lang = langs.first { return lang.isEmpty ? nil : lang }
+        return track.searchLanguage
     }
     
     // MARK: - Lock Screen & Control Center
@@ -406,11 +554,23 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     // MARK: - Playback Control
     
-    public func playTrack(_ track: MediaTrack, inQueue tracks: [MediaTrack] = []) {
+    public func playTrack(_ track: MediaTrack, inQueue tracks: [MediaTrack] = [], context: PlayContext = .unchanged) {
+        switch context {
+        case .unchanged: break
+        case .playlist(let id): contextPlaylistId = id
+        case .none: contextPlaylistId = nil
+        }
+        errorMessage = nil
+        // Silence the old song now: while the next one's video is looked up it would keep playing
+        // and keep moving the position, and the new song would start from there
+        webView.evaluateJavaScript("stopForSwitch();", completionHandler: nil)
+        let startAt = track.startTime ?? 0
         self.currentTrack = track
-        self.currentTime = 0
+        self.currentTime = startAt
         self.duration = track.duration
         self.isPlaying = true
+        self.trimEndHandled = false
+        self.playCounted = false
         
         if !tracks.isEmpty {
             self.originalQueue = tracks
@@ -424,13 +584,11 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             self.currentIndex = 0
         }
         
-        PlaylistStore.shared.recordPlay(track: track)
-        
         // Auto-resolve high-res artwork
         self.activeArtworkURL = track.thumbnailURL
         Task {
-            if let highRes = await ArtworkService.shared.resolveHighResArtwork(title: track.title, artist: track.artist) {
-                self.activeArtworkURL = highRes
+            if let cover = await TrackArtworkService.shared.cover(for: track), self.currentTrack?.id == track.id {
+                self.activeArtworkURL = cover.absoluteString
                 self.updateNowPlayingInfo()
             }
         }
@@ -438,14 +596,22 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         // Load lyrics
         loadLyrics(for: track)
         
-        // Load and play video
-        if let vid = track.youtubeId {
-            loadVideo(id: vid)
+        // Load and play video: the saved one, or the best official video (same ranking as the Mac app,
+        // in the playlist's language, skipping videos marked 👎)
+        if let vid = track.youtubeId, !vid.isEmpty {
+            loadVideo(id: vid, startAt: startAt)
         } else {
+            let language = searchLanguage(for: track)
+            let excluded = Set(track.rejectedVideoIds ?? [])
             Task {
-                if let vid = await YouTubeService.shared.resolveVideoId(for: track.title, artist: track.artist) {
+                let vid = await YouTubeService.shared.resolveVideo(for: track, language: language, excluding: excluded)
+                guard self.currentTrack?.id == track.id else { return }
+                if let vid {
                     self.currentTrack?.youtubeId = vid
-                    self.loadVideo(id: vid)
+                    self.loadVideo(id: vid, startAt: startAt)
+                } else {
+                    self.isPlaying = false
+                    self.errorMessage = "Couldn't find \"\(track.title)\" on YouTube."
                 }
             }
         }
@@ -462,10 +628,17 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     public func resume() {
+        print("[pp] resume() from:\n" + Thread.callStackSymbols.prefix(5).joined(separator: "\n"))
         isPlaying = true
-        BackgroundAudioKeepAlive.shared.start()
-        if currentLoadedVideoId == nil, let track = currentTrack, let vid = track.youtubeId, !vid.isEmpty {
-            loadVideo(id: vid, autoPlay: true)
+        if appInBackground { BackgroundAudioKeepAlive.shared.start() }
+        if currentLoadedVideoId == nil, let track = currentTrack {
+            if let vid = track.youtubeId, !vid.isEmpty {
+                loadVideo(id: vid, autoPlay: true)
+            } else {
+                // e.g. the song shown at launch: find its video, then play
+                playTrack(track, inQueue: queue)
+                return
+            }
         } else {
             webView.evaluateJavaScript("playVideo();", completionHandler: nil)
         }
@@ -473,6 +646,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     public func pause() {
+        print("[pp] pause() from:\n" + Thread.callStackSymbols.prefix(5).joined(separator: "\n"))
         isPlaying = false
         BackgroundAudioKeepAlive.shared.stop()
         webView.evaluateJavaScript("pauseVideo();", completionHandler: nil)
@@ -498,8 +672,9 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     public func playPrevious() {
-        if currentTime > 3.0 {
-            seek(to: 0)
+        let start = currentTrack?.startTime ?? 0
+        if currentTime > start + 3.0 {
+            seek(to: start)
             return
         }
         guard !queue.isEmpty else { return }
@@ -507,8 +682,21 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             currentIndex -= 1
             playTrack(queue[currentIndex], inQueue: queue)
         } else {
-            seek(to: 0)
+            seek(to: currentTrack?.startTime ?? 0)
         }
+    }
+    
+    /// Song finished (or reached its end time): Repeat One restarts it, otherwise next.
+    private func handleTrackEnded() {
+        if repeatMode == 2, let track = currentTrack {
+            trimEndHandled = false
+            seek(to: track.startTime ?? 0)
+            resume()
+            return
+        }
+        isPlaying = false
+        BackgroundAudioKeepAlive.shared.stop()
+        playNext()
     }
     
     public func toggleShuffle() {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 public struct ChangeVideoLinkSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -26,7 +27,7 @@ public struct ChangeVideoLinkSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -37,12 +38,28 @@ public struct ChangeVideoLinkSheet: View {
                                 .foregroundColor(AuraTheme.textPrimary)
                             
                             HStack(spacing: 10) {
-                                TextField("https://www.youtube.com/watch?v=...", text: $inputUrlOrId)
+                                TextField("Paste a YouTube link or video ID", text: $inputUrlOrId)
                                     .textFieldStyle(.plain)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
                                     .padding(12)
-                                    .background(AuraTheme.surfaceElevated)
-                                    .cornerRadius(12)
+                                    .padding(.trailing, inputUrlOrId.isEmpty ? 0 : 26)
+                                    .overlay(alignment: .trailing) { clearButton($inputUrlOrId) }
+                                    .liquidGlass(cornerRadius: 12)
                                     .foregroundColor(AuraTheme.textPrimary)
+                                
+                                // Paste a link copied from Discover / YouTube in one tap
+                                if inputUrlOrId.isEmpty {
+                                    Button {
+                                        if let text = UIPasteboard.general.string { inputUrlOrId = text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                    } label: {
+                                        Image(systemName: "doc.on.clipboard")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(AuraTheme.primary)
+                                            .frame(width: 40, height: 40)
+                                            .liquidGlass(cornerRadius: 12)
+                                    }
+                                }
                                 
                                 Button("Apply") {
                                     applyDirectLink()
@@ -70,8 +87,9 @@ public struct ChangeVideoLinkSheet: View {
                                 TextField("Search query", text: $searchQuery)
                                     .textFieldStyle(.plain)
                                     .padding(12)
-                                    .background(AuraTheme.surfaceElevated)
-                                    .cornerRadius(12)
+                                    .padding(.trailing, searchQuery.isEmpty ? 0 : 26)
+                                    .overlay(alignment: .trailing) { clearButton($searchQuery) }
+                                    .liquidGlass(cornerRadius: 12)
                                     .foregroundColor(AuraTheme.textPrimary)
                                     .onSubmit { performSearch() }
                                 
@@ -87,8 +105,7 @@ public struct ChangeVideoLinkSheet: View {
                                             .frame(width: 44, height: 44)
                                     }
                                 }
-                                .background(AuraTheme.surfaceElevated)
-                                .cornerRadius(12)
+                                .liquidGlass(cornerRadius: 12)
                             }
                             
                             // Results
@@ -169,16 +186,8 @@ public struct ChangeVideoLinkSheet: View {
     }
     
     private func applyVideo(id: String, thumb: String?) {
-        for pIdx in store.playlists.indices {
-            for tIdx in store.playlists[pIdx].tracks.indices {
-                if store.playlists[pIdx].tracks[tIdx].id == track.id {
-                    store.playlists[pIdx].tracks[tIdx].youtubeId = id
-                    if let t = thumb {
-                        store.playlists[pIdx].tracks[tIdx].thumbnailURL = t
-                    }
-                }
-            }
-        }
+        // (used to edit the playlists without saving, so the new video was lost on restart)
+        store.setVideo(trackId: track.id, videoId: id, thumbnailURL: thumb)
         if playback.currentTrack?.id == track.id {
             playback.currentTrack?.youtubeId = id
             playback.loadVideo(id: id)
@@ -196,6 +205,22 @@ public struct ChangeVideoLinkSheet: View {
                 self.searchResults = res
                 self.isSearching = false
             }
+        }
+    }
+    
+    /// ⓧ inside a text field: empties it
+    @ViewBuilder
+    private func clearButton(_ text: Binding<String>) -> some View {
+        if !text.wrappedValue.isEmpty {
+            Button {
+                text.wrappedValue = ""
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(AuraTheme.textTertiary)
+                    .padding(.trailing, 10)
+            }
+            .buttonStyle(.plain)
         }
     }
 }

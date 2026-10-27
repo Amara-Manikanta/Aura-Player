@@ -23,7 +23,7 @@ public struct TrimTimesSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 12) {
@@ -47,8 +47,7 @@ public struct TrimTimesSheet: View {
                         timeRow(label: "End at", text: $endText, placeholder: track.duration > 0 ? Self.format(track.duration) : "End")
                     }
                     .padding(16)
-                    .background(AuraTheme.surfaceElevated)
-                    .cornerRadius(16)
+                    .liquidGlass(cornerRadius: 16)
                     
                     Text("Skip intros or speech. Use min:sec format (e.g. 0:25 or 3:40). Leave End empty to play to completion.")
                         .font(.system(size: 13))
@@ -69,8 +68,7 @@ public struct TrimTimesSheet: View {
                         .foregroundColor(AuraTheme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(AuraTheme.surfaceElevated)
-                        .cornerRadius(14)
+                        .liquidGlass(cornerRadius: 14)
                         
                         Button("Save Trim") {
                             validateAndSave()
@@ -107,8 +105,7 @@ public struct TrimTimesSheet: View {
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
                 .padding(10)
-                .background(AuraTheme.surfaceCard)
-                .cornerRadius(10)
+                .liquidGlass(cornerRadius: 10)
                 .foregroundColor(AuraTheme.textPrimary)
                 .frame(width: 100)
             
@@ -147,14 +144,8 @@ public struct TrimTimesSheet: View {
     }
     
     private func save(start: Double?, end: Double?) {
-        for pIdx in store.playlists.indices {
-            for tIdx in store.playlists[pIdx].tracks.indices {
-                if store.playlists[pIdx].tracks[tIdx].id == track.id {
-                    store.playlists[pIdx].tracks[tIdx].startTime = start
-                    store.playlists[pIdx].tracks[tIdx].endTime = end
-                }
-            }
-        }
+        // (used to edit the playlists without saving, so trims were lost on restart)
+        store.setTrimTimes(for: track, start: start, end: end)
         if playback.currentTrack?.id == track.id {
             playback.currentTrack?.startTime = start
             playback.currentTrack?.endTime = end

@@ -10,6 +10,7 @@ public struct SettingsView: View {
     @State private var showFileImporter: Bool = false
     @State private var showResetConfirmation: Bool = false
     @State private var statusToast: String?
+    @ObservedObject private var appleMusic = AppleMusicSync.shared
     
     public init(playlistStore: PlaylistStore) {
         self.playlistStore = playlistStore
@@ -18,7 +19,7 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
@@ -144,8 +145,7 @@ public struct SettingsView: View {
                                         .tint(SansaTheme.neonBlue)
                                     }
                                     .padding(14)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(14)
+                                    .liquidGlass(cornerRadius: 14)
                                     
                                     // Mechanical Haptic Ticks
                                     Toggle(isOn: $sansaHaptics) {
@@ -155,8 +155,7 @@ public struct SettingsView: View {
                                     }
                                     .tint(SansaTheme.neonBlue)
                                     .padding(14)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(14)
+                                    .liquidGlass(cornerRadius: 14)
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -178,13 +177,40 @@ public struct SettingsView: View {
                                         .foregroundColor(.white)
                                         .font(.system(size: 15, weight: .semibold))
                                     Spacer()
-                                    Text("\(playlistStore.playlists.count) playlists • 3,432 tracks")
+                                    Text("\(playlistStore.playlists.count) playlists • \(playlistStore.allUniqueTracks.count) songs")
                                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                                         .foregroundColor(AuraTheme.textSecondary)
                                 }
                                 .padding(14)
-                                .background(AuraTheme.surfaceCard)
-                                .cornerRadius(14)
+                                .liquidGlass(cornerRadius: 14)
+                                
+                                // Apple Music: play counts, Recently Added and new songs from this iPhone's library
+                                Button {
+                                    Task { statusToast = await appleMusic.syncNow() }
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Label("Sync with Apple Music", systemImage: "music.note.house")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 15, weight: .semibold))
+                                            Text(appleMusic.lastSync.map { "Play counts, Recently Added & new songs • synced \($0.formatted(.relative(presentation: .named)))" }
+                                                 ?? "Play counts, Recently Added & new songs from this iPhone")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(AuraTheme.textTertiary)
+                                        }
+                                        Spacer()
+                                        if appleMusic.isSyncing {
+                                            ProgressView().tint(AuraTheme.primary)
+                                        } else {
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                                .foregroundColor(AuraTheme.primary)
+                                        }
+                                    }
+                                    .padding(14)
+                                    .liquidGlass(cornerRadius: 14)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(appleMusic.isSyncing)
                                 
                                 // Export Backup
                                 if let backupURL = playlistStore.createBackupFileURL() {
@@ -201,8 +227,7 @@ public struct SettingsView: View {
                                                 .foregroundColor(AuraTheme.textTertiary)
                                         }
                                         .padding(14)
-                                        .background(AuraTheme.surfaceCard)
-                                        .cornerRadius(14)
+                                        .liquidGlass(cornerRadius: 14)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -220,8 +245,7 @@ public struct SettingsView: View {
                                             .foregroundColor(AuraTheme.textTertiary)
                                     }
                                     .padding(14)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(14)
+                                    .liquidGlass(cornerRadius: 14)
                                 }
                                 .buttonStyle(.plain)
                                 
@@ -238,8 +262,7 @@ public struct SettingsView: View {
                                             .foregroundColor(AuraTheme.textTertiary)
                                     }
                                     .padding(14)
-                                    .background(AuraTheme.surfaceCard)
-                                    .cornerRadius(14)
+                                    .liquidGlass(cornerRadius: 14)
                                 }
                                 .buttonStyle(.plain)
                             }

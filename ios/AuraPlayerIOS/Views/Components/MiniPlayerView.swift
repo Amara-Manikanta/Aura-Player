@@ -18,24 +18,7 @@ public struct MiniPlayerView: View {
         guard let track = playback.currentTrack else { return AnyView(EmptyView()) }
         
         return AnyView(
-            Button(action: {
-                Haptics.light()
-                onExpand()
-            }) {
-                ZStack(alignment: .top) {
-                    // Glass Background
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(AuraTheme.surfaceCard.opacity(0.92))
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(AuraTheme.glassBorder, lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.4), radius: 16, x: 0, y: 8)
-                    
+            ZStack(alignment: .top) {
                     // Top Micro-Progress Bar
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -49,7 +32,7 @@ public struct MiniPlayerView: View {
                         }
                     }
                     .frame(height: 2.5)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
                     
                     // Player Content Row
                     HStack(spacing: 12) {
@@ -91,7 +74,7 @@ public struct MiniPlayerView: View {
                         Spacer()
                         
                         // Controls: Play/Pause and Next
-                        HStack(spacing: 16) {
+                        HStack(spacing: 8) {
                             Button {
                                 Haptics.medium()
                                 playback.togglePlayPause()
@@ -111,16 +94,24 @@ public struct MiniPlayerView: View {
                                     .foregroundColor(AuraTheme.textSecondary)
                                     .frame(width: 36, height: 36)
                             }
+                            
+                            CurrentSongMenu(playback: playback)
                         }
-                        .padding(.trailing, 6)
+                        .padding(.trailing, 2)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                 }
                 .frame(height: 64)
+                .liquidGlass(cornerRadius: 22, interactive: true)
+                .shadow(color: Color.black.opacity(0.25), radius: 14, x: 0, y: 8)
+                .contentShape(Rectangle())
+                // Tap anywhere on the bar (except play / next) to open the full player
+                .onTapGesture {
+                    Haptics.light()
+                    onExpand()
+                }
                 .padding(.horizontal, 16)
-            }
-            .buttonStyle(.plain)
         )
     }
 }

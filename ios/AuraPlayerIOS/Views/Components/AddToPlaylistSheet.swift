@@ -16,7 +16,7 @@ public struct AddToPlaylistSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                AuraTheme.backgroundDark.ignoresSafeArea()
+                AuraBackground()
                 
                 VStack(spacing: 20) {
                     // Track header summary
@@ -59,8 +59,7 @@ public struct AddToPlaylistSheet: View {
                             TextField("Playlist Name", text: $newPlaylistName)
                                 .textFieldStyle(.plain)
                                 .padding(12)
-                                .background(AuraTheme.surfaceElevated)
-                                .cornerRadius(10)
+                                .liquidGlass(cornerRadius: 10)
                                 .foregroundColor(AuraTheme.textPrimary)
                             
                             Button("Create & Add") {

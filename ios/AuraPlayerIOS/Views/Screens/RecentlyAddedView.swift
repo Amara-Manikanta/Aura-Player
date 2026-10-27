@@ -34,7 +34,7 @@ public struct RecentlyAddedView: View {
     
     public var body: some View {
         ZStack {
-            AuraTheme.backgroundDark.ignoresSafeArea()
+            AuraBackground()
             
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
@@ -70,7 +70,7 @@ public struct RecentlyAddedView: View {
                             Button {
                                 Haptics.medium()
                                 if let first = allTracks.first {
-                                    playback.playTrack(first, inQueue: allTracks)
+                                    playback.playTrack(first, inQueue: allTracks, context: .none)
                                 }
                             } label: {
                                 HStack {
@@ -90,7 +90,7 @@ public struct RecentlyAddedView: View {
                                 playback.isShuffled = true
                                 let shuffled = allTracks.shuffled()
                                 if let first = shuffled.first {
-                                    playback.playTrack(first, inQueue: shuffled)
+                                    playback.playTrack(first, inQueue: shuffled, context: .none)
                                 }
                             } label: {
                                 HStack {
@@ -101,8 +101,7 @@ public struct RecentlyAddedView: View {
                                 .foregroundColor(AuraTheme.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
-                                .background(AuraTheme.surfaceElevated)
-                                .cornerRadius(25)
+                                .liquidGlass(cornerRadius: 25)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -130,11 +129,11 @@ public struct RecentlyAddedView: View {
                                         isCurrent: isCur,
                                         isPlaying: playback.isPlaying,
                                         onTap: {
-                                            playback.playTrack(track, inQueue: allTracks)
+                                            playback.playTrack(track, inQueue: allTracks, context: .none)
                                         },
                                         onPlayVideo: {
                                             playback.displayMode = .video
-                                            playback.playTrack(track, inQueue: allTracks)
+                                            playback.playTrack(track, inQueue: allTracks, context: .none)
                                         },
                                         onAddToPlaylist: {
                                             trackForPlaylistSheet = track

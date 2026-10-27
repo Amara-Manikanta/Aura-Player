@@ -9,8 +9,11 @@ public struct TrackRowView: View {
     public let onAddToPlaylist: () -> Void
     public let onToggleFavorite: () -> Void
     public let onRemove: (() -> Void)?
+    /// The playlist this row is shown in: enables Move to / Copy to another playlist
+    public let playlistId: UUID?
     
     @State private var showChangeVideo: Bool = false
+    @State private var notice: String?
     @State private var showTrimTimes: Bool = false
     
     public init(
@@ -21,8 +24,10 @@ public struct TrackRowView: View {
         onPlayVideo: @escaping () -> Void,
         onAddToPlaylist: @escaping () -> Void,
         onToggleFavorite: @escaping () -> Void,
-        onRemove: (() -> Void)? = nil
+        onRemove: (() -> Void)? = nil,
+        playlistId: UUID? = nil
     ) {
+        self.playlistId = playlistId
         self.track = track
         self.isCurrent = isCurrent
         self.isPlaying = isPlaying
@@ -38,29 +43,7 @@ public struct TrackRowView: View {
             HStack(spacing: 14) {
                 // Artwork Thumbnail
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(AuraTheme.surfaceElevated)
-                        .frame(width: 52, height: 52)
-                    
-                    if let thumb = track.effectiveThumbnailURL, let url = URL(string: thumb) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 52, height: 52)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            default:
-                                Image(systemName: "music.note")
-                                    .foregroundColor(AuraTheme.textTertiary)
-                            }
-                        }
-                    } else {
-                        Image(systemName: "music.note")
-                            .foregroundColor(AuraTheme.textTertiary)
-                    }
+                    TrackArtworkView(track: track, size: 52, cornerRadius: 10)
                     
                     if isCurrent && isPlaying {
                         RoundedRectangle(cornerRadius: 10)
@@ -139,6 +122,25 @@ public struct TrackRowView: View {
                             Label("Trim Audio (Start/End)", systemImage: "scissors")
                         }
                         
+                        if let playlistId {
+                            let others = PlaylistStore.shared.playlists.filter { $0.id != playlistId }
+                            Divider()
+                            Menu {
+                                ForEach(others) { pl in
+                                    Button(pl.name.trimmingCharacters(in: .whitespaces)) { transfer(to: pl, move: true, from: playlistId) }
+                                }
+                            } label: {
+                                Label("Move to Playlist", systemImage: "arrow.right.square")
+                            }
+                            Menu {
+                                ForEach(others) { pl in
+                                    Button(pl.name.trimmingCharacters(in: .whitespaces)) { transfer(to: pl, move: false, from: playlistId) }
+                                }
+                            } label: {
+                                Label("Copy to Playlist", systemImage: "plus.square.on.square")
+                            }
+                        }
+                        
                         if let onRemove = onRemove {
                             Divider()
                             Button(role: .destructive) {
@@ -167,6 +169,25 @@ public struct TrackRowView: View {
         }
         .sheet(isPresented: $showTrimTimes) {
             TrimTimesSheet(track: track, store: PlaylistStore.shared, playback: PlaybackManager.shared)
+        }
+        .alert("Playlists", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(notice ?? "")
+        }
+    }
+    
+    private func transfer(to playlist: Playlist, move: Bool, from sourceId: UUID) {
+        let store = PlaylistStore.shared
+        let name = playlist.name.trimmingCharacters(in: .whitespaces)
+        let result = move ? store.moveTrack(track.id, from: sourceId, to: playlist.id) : store.copyTrack(track, to: playlist.id)
+        Haptics.light()
+        switch result {
+        case .moved: notice = "Moved \"\(track.title)\" to \(name)."
+        case .copied: notice = "Copied \"\(track.title)\" to \(name)."
+        case .alreadyThere: notice = move ? "\"\(track.title)\" was already in \(name), so it was only removed from here."
+                                          : "\"\(track.title)\" is already in \(name)."
+        case .notFound: notice = "Couldn't find that song or playlist."
         }
     }
 }

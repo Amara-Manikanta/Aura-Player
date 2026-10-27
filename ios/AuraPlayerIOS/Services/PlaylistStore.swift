@@ -27,23 +27,11 @@ public class PlaylistStore: ObservableObject {
         playlists.first { $0.id == Self.favoritesId || $0.name.lowercased() == "favorites" }
     }
     
+    /// Apple Music plays + plays in this app, most first (same as the Mac app)
     public var mostPlayedTracks: [MediaTrack] {
-        var allTracks: [MediaTrack] = []
-        for pl in playlists {
-            allTracks.append(contentsOf: pl.tracks)
-        }
-        var uniqueDict: [UUID: MediaTrack] = [:]
-        for t in allTracks {
-            if let existing = uniqueDict[t.id] {
-                if t.playCount > existing.playCount {
-                    uniqueDict[t.id] = t
-                }
-            } else {
-                uniqueDict[t.id] = t
-            }
-        }
-        return uniqueDict.values
-            .sorted { ($0.playCount, $0.applePlayCount ?? 0) > ($1.playCount, $1.applePlayCount ?? 0) }
+        allUniqueTracks
+            .filter { $0.totalPlays > 0 }
+            .sorted { $0.totalPlays > $1.totalPlays }
     }
     
     public var artistsMap: [String: [MediaTrack]] {
@@ -154,6 +142,86 @@ public class PlaylistStore: ObservableObject {
         }
         
         save()
+    }
+    
+    // MARK: - Song edits (saved immediately)
+    
+    /// The saved copy of a song (the playing copy may carry unsaved changes)
+    public func savedTrack(id: UUID) -> MediaTrack? {
+        for pl in playlists { if let t = pl.tracks.first(where: { $0.id == id }) { return t } }
+        return nil
+    }
+    
+    private func updateTracks(where match: (MediaTrack) -> Bool, _ change: (inout MediaTrack) -> Void) {
+        for p in playlists.indices {
+            for t in playlists[p].tracks.indices where match(playlists[p].tracks[t]) {
+                change(&playlists[p].tracks[t])
+            }
+        }
+        save()
+    }
+    
+    /// Where a song starts and stops, on every copy of it (same id or same link)
+    public func setTrimTimes(for track: MediaTrack, start: Double?, end: Double?) {
+        let s = (start ?? 0) > 0 ? start : nil
+        updateTracks(where: { $0.id == track.id || (!$0.originalURL.isEmpty && $0.originalURL == track.originalURL) }) {
+            $0.startTime = s
+            $0.endTime = end
+        }
+    }
+    
+    /// Points a song at a YouTube video (Change Video Link, or 👍 on the playing video)
+    public func setVideo(trackId: UUID, videoId: String, thumbnailURL: String? = nil) {
+        updateTracks(where: { $0.id == trackId }) {
+            $0.youtubeId = videoId
+            if let thumbnailURL { $0.thumbnailURL = thumbnailURL }
+        }
+    }
+    
+    /// 👎: never play this video for this song again
+    public func rejectVideo(trackId: UUID, videoId: String) {
+        updateTracks(where: { $0.id == trackId }) {
+            var rejected = $0.rejectedVideoIds ?? []
+            if !rejected.contains(videoId) { rejected.append(videoId) }
+            $0.rejectedVideoIds = rejected
+            if $0.youtubeId == videoId && !$0.originalURL.lowercased().hasPrefix("http") { $0.youtubeId = nil }
+        }
+    }
+    
+    // MARK: - Move / copy between playlists
+    
+    public enum TransferResult { case moved, copied, alreadyThere, notFound }
+    
+    /// Same song: same YouTube video, same link, or same title and artist
+    public static func isSameSong(_ a: MediaTrack, _ b: MediaTrack) -> Bool {
+        if let idA = a.youtubeId, !idA.isEmpty, idA == b.youtubeId { return true }
+        if !a.originalURL.isEmpty && a.originalURL.lowercased() == b.originalURL.lowercased() { return true }
+        let key = { (t: MediaTrack) in "\(t.title.lowercased().trimmingCharacters(in: .whitespaces))|\(t.artist.lowercased().trimmingCharacters(in: .whitespaces))" }
+        return !a.title.isEmpty && key(a) == key(b)
+    }
+    
+    @discardableResult
+    public func moveTrack(_ trackId: UUID, from sourceId: UUID, to destinationId: UUID) -> TransferResult {
+        guard sourceId != destinationId,
+              let si = playlists.firstIndex(where: { $0.id == sourceId }),
+              let di = playlists.firstIndex(where: { $0.id == destinationId }),
+              let track = playlists[si].tracks.first(where: { $0.id == trackId }) else { return .notFound }
+        playlists[si].tracks.removeAll { $0.id == trackId }
+        let exists = playlists[di].tracks.contains { Self.isSameSong($0, track) }
+        if !exists { playlists[di].tracks.append(track) }
+        save()
+        return exists ? .alreadyThere : .moved
+    }
+    
+    @discardableResult
+    public func copyTrack(_ track: MediaTrack, to destinationId: UUID) -> TransferResult {
+        guard let di = playlists.firstIndex(where: { $0.id == destinationId }) else { return .notFound }
+        if playlists[di].tracks.contains(where: { Self.isSameSong($0, track) }) { return .alreadyThere }
+        var copy = track
+        if playlists[di].tracks.contains(where: { $0.id == track.id }) { copy = track.withNewId() }
+        playlists[di].tracks.append(copy)
+        save()
+        return .copied
     }
     
     public func isTrackFavorite(_ track: MediaTrack) -> Bool {
@@ -273,7 +341,7 @@ public class PlaylistStore: ObservableObject {
         }
     }
     
-    private func save() {
+    func save() {
         do {
             let data = try JSONEncoder().encode(playlists)
             try data.write(to: saveURL, options: .atomic)

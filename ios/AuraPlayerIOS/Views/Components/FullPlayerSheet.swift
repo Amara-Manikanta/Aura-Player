@@ -13,6 +13,7 @@ public struct FullPlayerSheet: View {
     @State private var showAddToPlaylist: Bool = false
     @State private var showChangeVideo: Bool = false
     @State private var showTrimTimes: Bool = false
+    @State private var showFullScreenVideo: Bool = false
     
     public init(playback: PlaybackManager, playlistStore: PlaylistStore) {
         self.playback = playback
@@ -51,9 +52,8 @@ public struct FullPlayerSheet: View {
                         onOpenSettings: { showSettings = true }
                     )
                 } else {
-                    // Background AMOLED Black and Warm Ambient Gradient
-                    AuraTheme.backgroundDark.ignoresSafeArea()
-                    AuraTheme.ambientGradient.ignoresSafeArea()
+                    // Violet glass backdrop
+                    AuraBackground()
                     
                     VStack(spacing: 0) {
                         // Top Bar (Collapse Chevron, Mode Selector Pill, Menu)
@@ -112,10 +112,39 @@ public struct FullPlayerSheet: View {
                                     Label("Change Video Link", systemImage: "link")
                                 }
                                 
-                                Button {
-                                    showTrimTimes = true
-                                } label: {
-                                    Label("Trim Audio (Start/End)", systemImage: "scissors")
+                                Section("Start & End Time") {
+                                    Button {
+                                        let now = playback.currentTime
+                                        let end = (track.endTime ?? 0) > now + 1 ? track.endTime : nil
+                                        playlistStore.setTrimTimes(for: track, start: now, end: end)
+                                        playback.currentTrack?.startTime = now
+                                        playback.currentTrack?.endTime = end
+                                    } label: {
+                                        Label("Start From Current Position", systemImage: "arrow.right.to.line")
+                                    }
+                                    Button {
+                                        let now = playback.currentTime
+                                        let start = (track.startTime ?? 0) < now - 1 ? track.startTime : nil
+                                        playlistStore.setTrimTimes(for: track, start: start, end: now)
+                                        playback.currentTrack?.startTime = start
+                                        playback.currentTrack?.endTime = now
+                                    } label: {
+                                        Label("End at Current Position", systemImage: "arrow.left.to.line")
+                                    }
+                                    Button {
+                                        showTrimTimes = true
+                                    } label: {
+                                        Label("Set Start & End Time…", systemImage: "scissors")
+                                    }
+                                    if track.startTime != nil || track.endTime != nil {
+                                        Button(role: .destructive) {
+                                            playlistStore.setTrimTimes(for: track, start: nil, end: nil)
+                                            playback.currentTrack?.startTime = nil
+                                            playback.currentTrack?.endTime = nil
+                                        } label: {
+                                            Label("Clear Start & End Time", systemImage: "xmark.circle")
+                                        }
+                                    }
                                 }
                                 
                                 Button {
@@ -133,7 +162,7 @@ public struct FullPlayerSheet: View {
                                     }
                                 } label: {
                                     Label(
-                                        playerTheme == .modern ? "Switch to Sansa e260 Theme" : "Switch to Modern AMOLED",
+                                        playerTheme == .modern ? "Switch to Sansa e260 Theme" : "Switch to Modern Glass",
                                         systemImage: playerTheme == .modern ? "opticaldisc.fill" : "iphone"
                                     )
                                 }
@@ -157,19 +186,30 @@ public struct FullPlayerSheet: View {
                     
                     // Center Content Area (Fixed constraints to prevent overflowing)
                     ZStack {
-                        // Persistent video player host (never unmounts during mode switches)
-                        YouTubeWebPlayerView(playback: playback)
-                            .aspectRatio(16/9, contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .cornerRadius(18)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .stroke(AuraTheme.glassBorder, lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.5), radius: 16)
-                            .padding(.horizontal, 16)
-                            .opacity(playback.displayMode == .video ? 1.0 : 0.001)
-                            .allowsHitTesting(playback.displayMode == .video)
+                        // Persistent video player host (never unmounts during mode switches).
+                        // Video mode: edge to edge across the screen, with a full-screen button.
+                        ZStack(alignment: .bottomTrailing) {
+                            // Only in Video mode (an almost-transparent player can be paused by WebKit);
+                            // otherwise the background player keeps playing
+                            if playback.displayMode == .video {
+                                YouTubeWebPlayerView(playback: playback, hostID: "player-sheet")
+                                    .aspectRatio(16/9, contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                Button {
+                                    Haptics.light()
+                                    showFullScreenVideo = true
+                                } label: {
+                                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 36, height: 36)
+                                        .background(.ultraThinMaterial, in: Circle())
+                                }
+                                .padding(10)
+                            }
+                        }
+                        .opacity(playback.displayMode == .video ? 1.0 : 0.001)
+                        .allowsHitTesting(playback.displayMode == .video)
                         
                         if playback.displayMode == .audio {
                             // Scalable Album Artwork
@@ -206,9 +246,23 @@ public struct FullPlayerSheet: View {
                             LyricsView(playback: playback)
                         }
                     }
-                    .frame(height: artworkDimension + 20)
+                    // Video gets the full screen width (16:9); artwork / lyrics keep their size
+                    .frame(height: playback.displayMode == .video
+                           ? UIScreen.main.bounds.width * 9 / 16
+                           : artworkDimension + 20)
                     
                     Spacer(minLength: 12)
+                    
+                    if let error = playback.errorMessage {
+                        Text(error)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.red.opacity(0.75), in: Capsule())
+                            .padding(.horizontal, 20)
+                            .multilineTextAlignment(.center)
+                    }
                     
                     // Track Title, Artist, & Favorite Heart
                     HStack(alignment: .center) {
@@ -224,6 +278,28 @@ public struct FullPlayerSheet: View {
                                 .lineLimit(1)
                         }
                         Spacer()
+                        
+                        // Is this the right video for the song? 👍 always play it, 👎 try the next best
+                        if track.sourceType == .youtube {
+                            Button {
+                                Haptics.light()
+                                playback.confirmCurrentVideo()
+                            } label: {
+                                Image(systemName: playback.isCurrentVideoConfirmed ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                    .font(.system(size: 19))
+                                    .foregroundColor(playback.isCurrentVideoConfirmed ? .green : AuraTheme.textSecondary)
+                                    .frame(width: 40, height: 44)
+                            }
+                            Button {
+                                Haptics.medium()
+                                playback.rejectCurrentVideo()
+                            } label: {
+                                Image(systemName: "hand.thumbsdown")
+                                    .font(.system(size: 19))
+                                    .foregroundColor(AuraTheme.textSecondary)
+                                    .frame(width: 40, height: 44)
+                            }
+                        }
                         
                         Button {
                             Haptics.light()
@@ -307,18 +383,21 @@ public struct FullPlayerSheet: View {
                             playback.togglePlayPause()
                         } label: {
                             ZStack {
+                                // Frosted white glass button, like light caught in a bubble
                                 Circle()
-                                    .fill(AuraTheme.primaryGradient)
-                                    .frame(width: 64, height: 64)
-                                    .shadow(color: AuraTheme.primary.opacity(0.45), radius: 14, x: 0, y: 6)
+                                    .fill(Color.white.opacity(0.85))
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                                    .frame(width: 70, height: 70)
+                                    .shadow(color: Color(hex: 0x3A2E9A).opacity(0.45), radius: 16, x: 0, y: 8)
                                 
                                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
                                     .font(.system(size: 26, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Color(hex: 0x7B6BE0))
                                     .offset(x: playback.isPlaying ? 0 : 2)
                             }
                         }
-                        .frame(width: 64, height: 64)
+                        .frame(width: 70, height: 70)
                         
                         Spacer()
                         
@@ -353,6 +432,9 @@ public struct FullPlayerSheet: View {
                     .padding(.bottom, 28)
                 }
             }
+        }
+        .fullScreenCover(isPresented: $showFullScreenVideo) {
+            VideoFullScreenView(playback: playback)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(playlistStore: playlistStore)
