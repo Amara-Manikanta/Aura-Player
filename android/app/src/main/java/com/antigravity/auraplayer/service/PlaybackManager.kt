@@ -140,6 +140,9 @@ class PlaybackManager private constructor(private val context: Context) {
     private val _currentLyricIndex = MutableStateFlow(-1)
     val currentLyricIndex: StateFlow<Int> = _currentLyricIndex.asStateFlow()
 
+    /** While lyrics are being synced in the editor the song must not move to the next track */
+    var holdForLyricsEditor = false
+
     /** Album cover found for the playing song (iTunes), shown instead of the video thumbnail */
     private val _artworkUrl = MutableStateFlow<String?>(null)
     val artworkUrl: StateFlow<String?> = _artworkUrl.asStateFlow()
@@ -414,6 +417,10 @@ class PlaybackManager private constructor(private val context: Context) {
 
     /** Song finished (or reached its end time): Repeat One restarts it, otherwise the next song. */
     private fun handleTrackEnded() {
+        if (holdForLyricsEditor) {
+            if (isVideoActive) _videoCommands.tryEmit(VideoCommand.Pause) else controller?.pause()
+            return
+        }
         val track = _currentTrack.value ?: return
         if (_repeatMode.value == 2) {
             trimEndHandled = false
@@ -563,6 +570,30 @@ class PlaybackManager private constructor(private val context: Context) {
 
     // endregion
 
+    /** Applies title and artist rename to the playing track */
+    fun applyRename(trackId: String, newTitle: String, newArtist: String) {
+        val curr = _currentTrack.value ?: return
+        if (curr.id == trackId) {
+            _currentTrack.value = curr.copy(
+                title = newTitle.trim(),
+                artist = newArtist.trim().ifEmpty { "Unknown Artist" }
+            )
+        }
+    }
+
+    /** Reloads lyrics from custom store or network for the current song */
+    fun reloadLyrics() {
+        val track = _currentTrack.value ?: return
+        scope.launch {
+            val (synced, plain) = LyricsService.fetchLyrics(track.title, track.artist, track.duration)
+            if (_currentTrack.value?.id == track.id) {
+                _syncedLyrics.value = synced
+                _plainLyrics.value = plain
+                updateCurrentLyric(_currentPosition.value)
+            }
+        }
+    }
+
     private fun startProgressTicker() {
         progressJob?.cancel()
         progressJob = scope.launch {
@@ -575,7 +606,7 @@ class PlaybackManager private constructor(private val context: Context) {
                     updateCurrentLyric(pos)
                     onPosition(pos)
                 }
-                delay(250)
+                delay(100)
             }
         }
     }
@@ -586,9 +617,19 @@ class PlaybackManager private constructor(private val context: Context) {
 
     private fun updateCurrentLyric(posMs: Long) {
         val lyrics = _syncedLyrics.value ?: return
+        if (lyrics.isEmpty()) {
+            _currentLyricIndex.value = -1
+            return
+        }
+        // 320ms vocal anticipation lead time & intro protection, matching iOS & macOS
+        val anticipated = posMs + 320L
+        if (anticipated < lyrics[0].timeMs) {
+            _currentLyricIndex.value = -1
+            return
+        }
         var activeIdx = -1
         for (i in lyrics.indices) {
-            if (posMs >= lyrics[i].timeMs) activeIdx = i else break
+            if (anticipated >= lyrics[i].timeMs) activeIdx = i else break
         }
         _currentLyricIndex.value = activeIdx
     }

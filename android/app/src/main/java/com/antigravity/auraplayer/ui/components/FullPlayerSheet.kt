@@ -51,6 +51,7 @@ fun FullPlayerSheet(
     val plainLyrics by playbackManager.plainLyrics.collectAsState()
     val currentLyricIndex by playbackManager.currentLyricIndex.collectAsState()
     val artworkUrl by playbackManager.artworkUrl.collectAsState()
+    var showLyricsEditor by remember { mutableStateOf(false) }
     repository.playlists.collectAsState().value   // redraw when favourites / saved video change
     val t = track ?: return
 
@@ -92,10 +93,14 @@ fun FullPlayerSheet(
                         syncedLyrics = syncedLyrics,
                         plainLyrics = plainLyrics,
                         currentLyricIndex = currentLyricIndex,
-                        onSeekToTime = { playbackManager.seekTo(it) }
+                        onSeekToTime = { playbackManager.seekTo(it) },
+                        isPlaying = isPlaying,
+                        onAddLyrics = { showLyricsEditor = true }
                     )
                 } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val hasLyrics = !syncedLyrics.isNullOrEmpty() || !plainLyrics.isNullOrBlank()
+                    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = if (hasLyrics) Arrangement.Top else Arrangement.Center) {
                         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
                             VideoPlayerView(playbackManager = playbackManager)
                         }
@@ -103,6 +108,20 @@ fun FullPlayerSheet(
                             Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
                             Spacer(Modifier.width(6.dp))
                             Text("Picture in Picture", color = TextSecondary)
+                        }
+                        // The lyrics fill the space under the video, when there are any
+                        if (hasLyrics) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                LyricsView(
+                                    syncedLyrics = syncedLyrics,
+                                    plainLyrics = plainLyrics,
+                                    currentLyricIndex = currentLyricIndex,
+                                    onSeekToTime = { playbackManager.seekTo(it) },
+                                    compact = true,
+                                    isPlaying = isPlaying,
+                                    onAddLyrics = { showLyricsEditor = true }
+                                )
+                            }
                         }
                     }
                 } else {
@@ -206,6 +225,14 @@ fun FullPlayerSheet(
                     )
                 }
             }
+        }
+
+        if (showLyricsEditor) {
+            LyricsEditorDialog(
+                track = t,
+                playbackManager = playbackManager,
+                onDismiss = { showLyricsEditor = false }
+            )
         }
     }
 }

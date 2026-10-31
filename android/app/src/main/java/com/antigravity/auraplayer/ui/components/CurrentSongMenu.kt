@@ -3,7 +3,7 @@ package com.antigravity.auraplayer.ui.components
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.service.PlaybackManager
@@ -33,12 +34,31 @@ fun CurrentSongMenu(
     val position by playbackManager.currentPosition.collectAsState()
     var open by remember { mutableStateOf(false) }
     var showTrim by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var showLyricsEditor by remember { mutableStateOf(false) }
     val t = track ?: return
 
     IconButton(onClick = { open = true }) {
         Icon(Icons.Default.MoreHoriz, contentDescription = "Song options", tint = tint, modifier = Modifier.size(24.dp))
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        DropdownMenuItem(text = { Text("Copy Song Name") }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+            onClick = {
+                open = false
+                val artist = t.artist.trim()
+                copyToClipboard(context, if (artist.isEmpty() || artist == "Unknown Artist") t.title else "${t.title} – $artist", "Song name copied")
+            })
+        DropdownMenuItem(text = { Text("Rename Song…") }, leadingIcon = { Icon(Icons.Default.Edit, null) },
+            onClick = {
+                open = false
+                showRename = true
+            })
+        DropdownMenuItem(text = { Text("Add / Sync Lyrics…") }, leadingIcon = { Icon(Icons.Default.Lyrics, null) },
+            onClick = {
+                open = false
+                showLyricsEditor = true
+            })
+        HorizontalDivider()
         Text(t.trimLabel?.let { "  Plays $it" } ?: "  Start & End Time", color = TextTertiary,
             style = MaterialTheme.typography.labelSmall)
         DropdownMenuItem(text = { Text("Start From Current Position") }, leadingIcon = { Icon(Icons.Default.FirstPage, null) },
@@ -82,5 +102,57 @@ fun CurrentSongMenu(
     }
     if (showTrim) {
         TrimDialog(t, onSave = { s, e -> playbackManager.setTrim(s, e); showTrim = false }, onDismiss = { showTrim = false })
+    }
+    if (showRename) {
+        var newTitle by remember { mutableStateOf(t.title) }
+        var newArtist by remember { mutableStateOf(t.artist) }
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text("Rename Song", fontWeight = FontWeight.Bold) },
+            text = {
+                androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        label = { Text("Song title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newArtist,
+                        onValueChange = { newArtist = it },
+                        label = { Text("Artist") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRename = false
+                        repository.renameTrack(t.id, newTitle, newArtist)
+                        playbackManager.applyRename(t.id, newTitle, newArtist)
+                        Toast.makeText(context, "Song renamed", Toast.LENGTH_SHORT).show()
+                    },
+                    enabled = newTitle.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple)
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    if (showLyricsEditor) {
+        LyricsEditorDialog(
+            track = t,
+            playbackManager = playbackManager,
+            onDismiss = { showLyricsEditor = false }
+        )
     }
 }

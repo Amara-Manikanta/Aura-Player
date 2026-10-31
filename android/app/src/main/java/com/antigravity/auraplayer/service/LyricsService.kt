@@ -21,6 +21,9 @@ object LyricsService {
         artistName: String,
         durationSeconds: Double = 0.0
     ): Pair<List<LyricLine>?, String?> = withContext(Dispatchers.IO) {
+        // User-provided or edited lyrics always take precedence
+        CustomLyricsStore.getLyrics(trackName, artistName)?.let { return@withContext it }
+
         val cleanMetadata = com.antigravity.auraplayer.utils.MetadataCleaner.clean(trackName, artistName)
         val cleanTrack = cleanMetadata.cleanTitle
         val cleanArtist = cleanMetadata.primaryArtist

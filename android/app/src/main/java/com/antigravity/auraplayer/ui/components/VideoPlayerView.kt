@@ -131,7 +131,7 @@ private fun WebView.loadPlayer(cmd: VideoCommand.Load) {
                   clearInterval(timer);
                   if (e.data === 1) timer = setInterval(function() {
                     AuraBridge.onTime(player.getCurrentTime(), player.getDuration());
-                  }, 500);
+                  }, 100);
                 },
                 onError: function(e) { AuraBridge.onError(e.data); }
               }

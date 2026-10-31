@@ -233,6 +233,16 @@ class PlaylistRepository private constructor(private val context: Context) {
         savePlaylists()
     }
 
+    /** Updates the title and artist for all copies of the song in all playlists. */
+    fun renameTrack(trackId: String, newTitle: String, newArtist: String) {
+        val track = savedTrack(trackId)
+        val cleanTitle = newTitle.trim()
+        val cleanArtist = newArtist.trim().ifEmpty { "Unknown Artist" }
+        updateTracks({ it.id == trackId || (track != null && isSameSong(it, track)) }) {
+            it.copy(title = cleanTitle, artist = cleanArtist)
+        }
+    }
+
     /** Points a song (every copy of it) at a YouTube video: Change Video Link, or 👍 on the playing video. */
     fun setVideo(trackId: String, videoId: String) {
         val track = savedTrack(trackId)
