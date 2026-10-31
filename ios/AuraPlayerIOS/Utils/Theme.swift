@@ -34,31 +34,32 @@ public struct AuraBackground: View {
     public init() {}
     
     public var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(hex: 0x7B6BE0), Color(hex: 0x5446B8), Color(hex: 0x2E2678)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            Circle()
-                .fill(Color(hex: 0xE38CF2).opacity(0.55))
-                .frame(width: 340, height: 340)
-                .blur(radius: 90)
-                .offset(x: 150, y: -280)
-            Circle()
-                .fill(Color(hex: 0x6FB7FF).opacity(0.45))
-                .frame(width: 300, height: 300)
-                .blur(radius: 90)
-                .offset(x: -170, y: 60)
-            Circle()
-                .fill(Color(hex: 0xA77BFF).opacity(0.5))
-                .frame(width: 360, height: 360)
-                .blur(radius: 100)
-                .offset(x: 120, y: 380)
+        // The glows are an overlay so their size (wider than the screen) never changes the screen's layout
+        LinearGradient(
+            colors: [Color(hex: 0x7B6BE0), Color(hex: 0x5446B8), Color(hex: 0x2E2678)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay {
+            // Soft light glows. Radial gradients fade out on their own; blurred circles cost a lot of GPU
+            // on every screen, which showed up as lag while scrolling over glass.
+            ZStack {
+                glow(Color(hex: 0xE38CF2).opacity(0.55), size: 520, x: 120, y: -250)
+                glow(Color(hex: 0x6FB7FF).opacity(0.45), size: 460, x: -170, y: 40)
+                glow(Color(hex: 0xA77BFF).opacity(0.5), size: 560, x: 90, y: 400)
+            }
         }
+        .clipped()
         .ignoresSafeArea()
         .allowsHitTesting(false)
     }
+}
+
+private func glow(_ color: Color, size: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+    Circle()
+        .fill(RadialGradient(colors: [color, color.opacity(0)], center: .center, startRadius: 0, endRadius: size / 2))
+        .frame(width: size, height: size)
+        .offset(x: x, y: y)
 }
 
 public extension View {

@@ -9,6 +9,7 @@ public struct SearchView: View {
     @State private var searchResults: [YouTubeSearchResult] = []
     @State private var suggestions: [String] = []
     @State private var trackForPlaylistSheet: MediaTrack?
+    @State private var suggestionTask: Task<Void, Never>?
     /// Version of the song to look for ("Any" = no preference), as on the Mac
     @AppStorage("searchLanguage") private var searchLanguage: String = "Any"
     private let languages = ["Any", "Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "English", "Punjabi"]
@@ -201,8 +202,13 @@ public struct SearchView: View {
     
     private func fetchSuggestions(for text: String) {
         guard searchResults.isEmpty else { return }
-        Task {
+        // Wait for a pause in typing: one request per keystroke made typing lag
+        suggestionTask?.cancel()
+        suggestionTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
             let sugs = await YouTubeService.shared.getSuggestions(query: text)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 if !self.searchText.isEmpty && self.searchResults.isEmpty {
                     self.suggestions = sugs

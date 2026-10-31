@@ -6,7 +6,19 @@ import Combine
 public class PlaylistStore: ObservableObject {
     public static let shared = PlaylistStore()
     
-    @Published public var playlists: [Playlist] = []
+    @Published public var playlists: [Playlist] = [] {
+        didSet { derived = DerivedLists() }   // anything computed from the library is stale now
+    }
+    
+    /// Lists computed from the whole library (3,000+ songs). Rebuilt only after the library changes,
+    /// not on every screen redraw.
+    final class DerivedLists {
+        var unique: [MediaTrack]?
+        var mostPlayed: [MediaTrack]?
+        var recent: [MediaTrack]?
+        var artists: [ArtistGroup]?
+    }
+    var derived = DerivedLists()
     public var artistPhotos: [String: String] = [:]
     public var trackArtworkCache: [String: String] = [:]
     
@@ -19,6 +31,9 @@ public class PlaylistStore: ObservableObject {
         
         loadCaches()
         load()
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.saveNow() }
+        }
     }
     
     // MARK: - Playlists Accessors
@@ -29,9 +44,12 @@ public class PlaylistStore: ObservableObject {
     
     /// Apple Music plays + plays in this app, most first (same as the Mac app)
     public var mostPlayedTracks: [MediaTrack] {
-        allUniqueTracks
+        if let cached = derived.mostPlayed { return cached }
+        let sorted = allUniqueTracks
             .filter { $0.totalPlays > 0 }
             .sorted { $0.totalPlays > $1.totalPlays }
+        derived.mostPlayed = sorted
+        return sorted
     }
     
     public var artistsMap: [String: [MediaTrack]] {
@@ -60,6 +78,7 @@ public class PlaylistStore: ObservableObject {
     }
     
     public var allUniqueTracks: [MediaTrack] {
+        if let cached = derived.unique { return cached }
         var seen = Set<String>()
         var result: [MediaTrack] = []
         for pl in playlists {
@@ -71,11 +90,15 @@ public class PlaylistStore: ObservableObject {
                 }
             }
         }
+        derived.unique = result
         return result
     }
     
     public var recentlyAddedTracks: [MediaTrack] {
-        allUniqueTracks.sorted { $0.dateAdded > $1.dateAdded }
+        if let cached = derived.recent { return cached }
+        let sorted = allUniqueTracks.sorted { $0.dateAdded > $1.dateAdded }
+        derived.recent = sorted
+        return sorted
     }
     
     // MARK: - Operations
@@ -167,6 +190,14 @@ public class PlaylistStore: ObservableObject {
         updateTracks(where: { $0.id == track.id || (!$0.originalURL.isEmpty && $0.originalURL == track.originalURL) }) {
             $0.startTime = s
             $0.endTime = end
+        }
+    }
+    
+    /// Renames a song on every copy of it (same id or same link)
+    public func renameSong(_ track: MediaTrack, title: String, artist: String) {
+        updateTracks(where: { $0.id == track.id || (!$0.originalURL.isEmpty && $0.originalURL == track.originalURL) }) {
+            $0.title = title
+            $0.artist = artist
         }
     }
     
@@ -299,17 +330,20 @@ public class PlaylistStore: ObservableObject {
         seedDefaultPlaylists()
     }
     
-    public func createBackupFileURL() -> URL? {
-        do {
-            let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("AuraPlayer_Library_Backup.json")
-            let data = try JSONEncoder().encode(playlists)
-            try data.write(to: backupURL, options: .atomic)
-            return backupURL
-        } catch {
-            print("Failed to create backup file: \(error)")
-            return nil
-        }
+    /// Writes a backup file for sharing, in the background (Settings used to rebuild it on every redraw)
+    public func createBackupFile() async -> URL? {
+        let snapshot = playlists
+        return await Task.detached(priority: .utility) { () -> URL? in
+            do {
+                let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                    .appendingPathComponent("AuraPlayer_Library_Backup.json")
+                try JSONEncoder().encode(snapshot).write(to: backupURL, options: .atomic)
+                return backupURL
+            } catch {
+                print("Failed to create backup file: \(error)")
+                return nil
+            }
+        }.value
     }
     
     public func importBackup(from url: URL) -> Bool {
@@ -341,10 +375,53 @@ public class PlaylistStore: ObservableObject {
         }
     }
     
+    private var saveTask: Task<Void, Never>?
+    
+    /// Saves the library in the background, shortly after the last change. (Encoding 3,000+ songs on the
+    /// main thread froze the app for a moment at the 10-second play count and on every edit.)
     func save() {
+        saveTask?.cancel()
+        let snapshot = playlists
+        let url = saveURL
+        saveTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            Self.write(snapshot, to: url)
+        }
+    }
+    
+    /// A copy of the library before a sync changes it (the 3 newest are kept)
+    func backUpLibrary() {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: saveURL.path) else { saveNow(); return }
+        saveNow()
+        let dir = saveURL.deletingLastPathComponent()
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        try? fm.copyItem(at: saveURL, to: dir.appendingPathComponent("playlists_v2.backup-\(stamp).json"))
+        let backups = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.lastPathComponent.hasPrefix("playlists_v2.backup-") }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        for old in backups.dropFirst(3) { try? fm.removeItem(at: old) }
+    }
+    
+    /// The library after a sync with the Mac
+    func adoptSynced(_ synced: [Playlist]) {
+        playlists = synced
+        save()
+    }
+    
+    /// Writes any pending change right now (the app is going to the background)
+    func saveNow() {
+        guard saveTask != nil else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        Self.write(playlists, to: saveURL)
+    }
+    
+    nonisolated private static func write(_ playlists: [Playlist], to url: URL) {
         do {
             let data = try JSONEncoder().encode(playlists)
-            try data.write(to: saveURL, options: .atomic)
+            try data.write(to: url, options: .atomic)
         } catch {
             print("Failed to save playlists: \(error)")
         }

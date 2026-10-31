@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Player for Android — Official APK Download</title>
+  <meta name="description" content="Download Aura Player for Android: Free open-source music player with official YouTube playback, real-time karaoke lyrics, background audio, and universal playlist import from Spotify, YouTube, JioSaavn, and more.">
+  <meta property="og:title" content="Aura Player for Android — Official APK Download">
+  <meta property="og:description" content="Free open-source music player with YouTube streaming, live karaoke lyrics, background audio, and playlist import from Spotify, YouTube, JioSaavn, and Amazon Music.">
+  <meta property="og:image" content="screenshots/01_full_player.png">
+  <meta property="og:url" content="https://amara-manikanta.github.io/Aura-Player/">
+  <meta name="theme-color" content="#5B4BD8">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0A0A12;
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-border-glow: rgba(185, 168, 255, 0.35);
+      --accent-purple: #B9A8FF;
+      --accent-indigo: #7B6BE0;
+      --accent-teal: #34D399;
+      --accent-coral: #ED5564;
+      --accent-cyan: #00F0FF;
+      --text-primary: #FFFFFF;
+      --text-secondary: rgba(255, 255, 255, 0.72);
+      --text-muted: rgba(255, 255, 255, 0.45);
+      --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(123, 107, 224, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 85% 30%, rgba(52, 211, 153, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, rgba(185, 168, 255, 0.15) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(10, 10, 18, 0.75);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 16px 24px;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(123, 107, 224, 0.4);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-cta {
+      background: var(--text-primary);
+      color: #0A0A12;
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.35);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      position: relative;
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(185, 168, 255, 0.12);
+      border: 1px solid rgba(185, 168, 255, 0.3);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--accent-purple);
+      margin-bottom: 24px;
+    }
+
+    .pill-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      box-shadow: 0 0 8px var(--accent-teal);
+    }
+
+    .hero h1 {
+      font-size: clamp(38px, 6vw, 68px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, #FFFFFF 30%, rgba(255, 255, 255, 0.65) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--text-secondary);
+      max-width: 740px;
+      margin: 0 auto 36px;
+      font-weight: 400;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    .btn-download-primary {
+      background: linear-gradient(135deg, #7B6BE0, #9D8CFF);
+      color: #FFFFFF;
+      padding: 16px 36px;
+      border-radius: 16px;
+      font-size: 17px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(123, 107, 224, 0.45);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-download-primary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 16px 40px rgba(123, 107, 224, 0.6);
+      background: linear-gradient(135deg, #8A7AE6, #AA9BFF);
+    }
+
+    .btn-download-primary svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .btn-download-sub {
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.85;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      padding: 16px 28px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--glass-border-glow);
+      transform: translateY(-2px);
+    }
+
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .badge-bar span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-bar svg {
+      width: 15px;
+      height: 15px;
+      fill: var(--accent-teal);
+    }
+
+    /* Mobile QR Card */
+    .qr-hero-card {
+      max-width: 420px;
+      margin: 40px auto 0;
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      backdrop-filter: blur(20px);
+      text-align: left;
+    }
+
+    .qr-hero-card img {
+      width: 90px;
+      height: 90px;
+      border-radius: 10px;
+      background: #FFFFFF;
+      padding: 4px;
+    }
+
+    .qr-hero-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .qr-hero-card p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* Screenshots Showcase */
+    .screenshots-section {
+      padding: 60px 0 80px;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title h2 {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .section-title p {
+      color: var(--text-secondary);
+      font-size: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      align-items: start;
+    }
+
+    .screenshot-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .screenshot-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--glass-border-glow);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .screenshot-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .screenshot-caption {
+      padding: 14px 16px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* Features Grid */
+    .features-section {
+      padding: 60px 0 80px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--glass-border-glow);
+      transform: translateY(-4px);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 20px;
+      background: rgba(185, 168, 255, 0.12);
+      border: 1px solid rgba(185, 168, 255, 0.25);
+    }
+
+    .feature-card h3 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text-primary);
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 14.5px;
+      line-height: 1.6;
+    }
+
+    /* Platforms Strip */
+    .platform-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* Installation Steps */
+    .install-section {
+      padding: 60px 0 80px;
+    }
+
+    .install-card {
+      background: linear-gradient(135deg, rgba(123, 107, 224, 0.1), rgba(10, 10, 18, 0.6));
+      border: 1px solid var(--glass-border);
+      border-radius: 28px;
+      padding: 48px 36px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 28px;
+      margin-top: 36px;
+    }
+
+    .step-item {
+      position: relative;
+    }
+
+    .step-number {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: var(--accent-indigo);
+      color: #FFFFFF;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    .step-item h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step-item p {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* FAQ */
+    .faq-section {
+      padding: 60px 0 80px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+    }
+
+    .faq-item h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent-purple);
+    }
+
+    .faq-item p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--glass-border);
+      padding: 48px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: underline;
+    }
+
+    footer a:hover {
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 50px 0 40px;
+      }
+      .nav-links {
+        display: none;
+      }
+      .install-card {
+        padding: 32px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <span>Aura Player</span>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#install">How to Install</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <a href="AuraPlayer.apk" download="AuraPlayer.apk" class="nav-cta">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2h14v2H5v-2z"/>
+        </svg>
+        Download APK
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="container">
+      <div class="pill-badge">
+        <span class="dot"></span>
+        <span>Aura Player for Android • Version 1.0.0</span>
+      </div>
+
+      <h1>Music Streaming, Redefined in Liquid Glass</h1>
+
+      <p>
+        Stream millions of songs with official HD YouTube playback, real-time synchronized karaoke lyrics, background audio keep-alive, and instant 1-tap playlist import from Spotify, YouTube, JioSaavn, Gaana, and Amazon Music.
+      </p>
+
+      <div class="hero-actions">
+        <a href="AuraPlayer.apk" download="AuraPlayer.apk" class="btn-download-primary">
+          <svg viewBox="0 0 24 24">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9992.4482.9992.9993s-.4482.9997-.9992.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993s-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.1 12 8.1s-3.5902.3116-5.1368.8497L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.152 5676l1.9972 3.4592C2.6889 11.1867.3432 14.6589 0 18.7845h24c-.3432-4.1256-2.6889-7.5978-6.1185-9.4631"/>
+          </svg>
+          <div style="text-align: left;">
+            <div>Download AuraPlayer.apk</div>
+            <span class="btn-download-sub">v1.0.0 • 25 MB • Free Android Direct Download</span>
+          </div>
+        </a>
+
+        <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener" class="btn-secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="badge-bar">
+        <span>
+          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          Android 8.0 to Android 15
+        </span>
+        <span>
+          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          100% Free & Open Source
+        </span>
+        <span>
+          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          Zero Ads • No Account Needed
+        </span>
+      </div>
+
+      <!-- Quick QR Scan for Mobile Download -->
+      <div class="qr-hero-card">
+        <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk" alt="Scan to Download APK">
+        <div>
+          <h4>Scan with your Phone</h4>
+          <p>Browsing on a PC or Mac? Point your Android camera at the QR code to download directly to your mobile phone.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Screenshots Gallery -->
+  <section class="screenshots-section" id="screenshots">
+    <div class="container">
+      <div class="section-title">
+        <h2>Built with Modern Android & Jetpack Compose</h2>
+        <p>A fluid, responsive interface crafted with liquid glass aesthetics and hardware-accelerated playback.</p>
+      </div>
+
+      <div class="screenshots-grid">
+        <div class="screenshot-card">
+          <img src="screenshots/01_full_player.png" alt="Aura Player Full Player Mode" loading="lazy">
+          <div class="screenshot-caption">Triple Mode: Audio, Video & Karaoke</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="screenshots/02_home_feed.png" alt="Home Feed & Discovery" loading="lazy">
+          <div class="screenshot-caption">Home Feed & For You Recommendations</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="screenshots/03_library_playlists.png" alt="Library & Playlists" loading="lazy">
+          <div class="screenshot-caption">Library & Curated Playlists</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="screenshots/04_search_suggestions.png" alt="Live YouTube Music Search" loading="lazy">
+          <div class="screenshot-caption">Official Video Search & Video Switcher</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="screenshots/05_artists_catalog.png" alt="Artists & Singers Catalog" loading="lazy">
+          <div class="screenshot-caption">Artists Catalog & Photo Grid</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>Everything You Need in a Music Player</h2>
+        <p>Powered by NewPipeExtractor, Media3 ExoPlayer, and real-time lyrics syncing.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📥</div>
+          <h3>Universal Platform Importer</h3>
+          <p>
+            Paste any playlist or track link from external music platforms. Aura Player automatically extracts the song list and resolves official high-quality streams.
+          </p>
+          <div class="platform-pills">
+            <span class="pill" style="color:#FF4444; border-color:#FF444440;">YouTube</span>
+            <span class="pill" style="color:#1DB954; border-color:#1DB95440;">Spotify</span>
+            <span class="pill" style="color:#2BC5B4; border-color:#2BC5B440;">JioSaavn</span>
+            <span class="pill" style="color:#E72C30; border-color:#E72C3040;">Gaana</span>
+            <span class="pill" style="color:#00A8E1; border-color:#00A8E140;">Amazon Music</span>
+            <span class="pill" style="color:#C48CFF; border-color:#C48CFF40;">Text Lists</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎤</div>
+          <h3>Synchronized Karaoke Lyrics</h3>
+          <p>
+            Enjoy real-time millisecond-accurate synchronized lyrics with progressive word highlighting. Features multi-tier online fallback (LRCLIB, JioSaavn, Lyrics.ovh) and a built-in lyrics editor.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎧</div>
+          <h3>True Background Audio & MediaSession</h3>
+          <p>
+            Listen continuously with your phone locked or while switching between apps. Full Android system notification controls with rich artwork, track scrubber, and play/pause controls.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎬</div>
+          <h3>Unified Audio & Video Player</h3>
+          <p>
+            Switch instantly between lightweight background audio streaming and full-screen HD music video playback with zero playback interruption.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🪟</div>
+          <h3>Liquid Glass & Sansa Retro Themes</h3>
+          <p>
+            Switch between the signature modern AMOLED dark glass UI with illuminated pills, and the nostalgic 2000s SanDisk Sansa MP3 click-wheel interface.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🪶</div>
+          <h3>100% Free & Open Source</h3>
+          <p>
+            No premium paywalls, no tracking SDKs, no advertisements, and no user accounts required. Download and start listening in seconds.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How to Install Section -->
+  <section class="install-section" id="install">
+    <div class="container">
+      <div class="install-card">
+        <div class="section-title" style="margin-bottom: 24px;">
+          <h2>How to Install on Android</h2>
+          <p>Installing an APK directly takes less than 30 seconds.</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-item">
+            <div class="step-number">1</div>
+            <h4>Download APK</h4>
+            <p>Tap the <b>Download AuraPlayer.apk</b> button on this page. If Chrome or your browser warns you, tap <b>"Download anyway"</b>.</p>
+          </div>
+
+          <div class="step-item">
+            <div class="step-number">2</div>
+            <h4>Open File</h4>
+            <p>Once downloaded, pull down your notification tray and tap <b>AuraPlayer.apk</b> (or open it from your Files app / Downloads).</p>
+          </div>
+
+          <div class="step-item">
+            <div class="step-number">3</div>
+            <h4>Allow Unknown Source</h4>
+            <p>If prompted with <i>"For your security, your phone is not allowed to install unknown apps"</i>, tap <b>Settings</b> and toggle <b>"Allow from this source"</b>.</p>
+          </div>
+
+          <div class="step-item">
+            <div class="step-number">4</div>
+            <h4>Tap Install</h4>
+            <p>Tap <b>Install</b>, open Aura Player, and start streaming your favorite tracks!</p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 36px;">
+          <a href="AuraPlayer.apk" download="AuraPlayer.apk" class="btn-download-primary">
+            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
+              <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2h14v2H5v-2z"/>
+            </svg>
+            Download AuraPlayer.apk Now (25 MB)
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq-section" id="faq">
+    <div class="section-title">
+      <h2>Frequently Asked Questions</h2>
+    </div>
+
+    <div class="faq-item">
+      <h4>Is this APK safe to install?</h4>
+      <p>Yes, 100%. Aura Player is completely open source and built with standard Android Jetpack libraries. You can audit every single line of code in the public <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub repository</a>.</p>
+    </div>
+
+    <div class="faq-item">
+      <h4>Do I need a YouTube Premium or Spotify subscription?</h4>
+      <p>No subscriptions are required. Aura Player streams official YouTube music audio streams using open-source extractors directly on your device.</p>
+    </div>
+
+    <div class="faq-item">
+      <h4>How do I update to newer versions?</h4>
+      <p>Whenever a new version is released, simply download the new APK from this page and tap install. Android will update the existing app while preserving all your saved playlists and favorites.</p>
+    </div>
+
+    <div class="faq-item">
+      <h4>What Android versions are supported?</h4>
+      <p>Aura Player supports Android 8.0 (Oreo, API 26) through Android 15. It runs smoothly on Samsung, Google Pixel, OnePlus, Xiaomi, and other Android devices.</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>
+        Aura Player is an open-source project by <a href="https://github.com/Amara-Manikanta" target="_blank" rel="noopener">Manikanta Amara</a>.
+        Licensed under the <a href="https://github.com/Amara-Manikanta/Aura-Player/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.
+      </p>
+      <p style="margin-top: 8px;">
+        <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub Repository</a> • 
+        <a href="AuraPlayer.apk" download="AuraPlayer.apk">Direct APK Download</a>
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>

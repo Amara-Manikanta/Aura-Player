@@ -8,6 +8,12 @@
 	<true/>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Aura Player reads your Apple Music library to bring in your play counts, recently added songs and new songs.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_auraplayer._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Aura Player finds your Mac on your Wi-Fi to keep your playlists and play counts in sync.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

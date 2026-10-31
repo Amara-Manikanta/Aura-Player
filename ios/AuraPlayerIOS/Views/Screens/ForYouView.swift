@@ -188,9 +188,14 @@ public struct ForYouView: View {
         }
         isWorking = true
         progress = (0, 0)
-        let seeds = TasteBuilder.seeds(from: store, count: 20)
-        let known = TasteBuilder.knownSongs(in: store)
-        let knownIds = Set(store.allUniqueTracks.compactMap(\.youtubeId))
+        // The number-crunching over 3,000+ songs runs off the main thread: it used to freeze the app
+        let tracks = store.allUniqueTracks
+        let favorites = store.favoritesPlaylist?.tracks ?? []
+        let (seeds, known, knownIds) = await Task.detached(priority: .userInitiated) {
+            (TasteBuilder.seeds(tracks: tracks, favorites: favorites, count: 20),
+             TasteBuilder.knownSongs(tracks: tracks),
+             Set(tracks.compactMap(\.youtubeId)))
+        }.value
         let result = await RecommendationService.shared.generate(seeds: seeds, known: known, knownVideoIds: knownIds) { done, total in
             Task { @MainActor in progress = (done, total) }
         }
@@ -205,14 +210,18 @@ public struct ForYouView: View {
         guard !isWorking else { return }
         isWorking = true
         progress = (0, 0)
-        let profile = TasteBuilder.profile(from: store)
+        let tracks = store.allUniqueTracks
+        let artists = store.allArtists
+        let profile = await Task.detached(priority: .userInitiated) {
+            TasteBuilder.profile(tracks: tracks, artists: artists)
+        }.value
         newItems = await RecommendationService.shared.newForYou(profile: profile)
         isWorking = false
     }
 }
 
 /// Turns the library into what the recommender needs (same as the Mac app).
-@MainActor
+/// Works on plain arrays so it can run off the main thread.
 enum TasteBuilder {
     /// How much a song tells us about your taste: plays (log scale), favourite, 👍, played recently.
     static func weight(_ t: MediaTrack, favorite: Bool) -> Double {
@@ -225,10 +234,15 @@ enum TasteBuilder {
 
     /// About `count` seed songs: strongest first, but sampled from the top 60 so each refresh differs,
     /// and at most 2 per artist and per movie so one favourite doesn't take over.
-    static func seeds(from store: PlaylistStore, count: Int) -> [RecommendationService.Seed] {
-        let ranked = store.allUniqueTracks
+    static func seeds(tracks: [MediaTrack], favorites: [MediaTrack], count: Int) -> [RecommendationService.Seed] {
+        let favoriteIds = Set(favorites.map(\.id))
+        let favoriteVideos = Set(favorites.compactMap(\.youtubeId))
+        let ranked = tracks
             .filter { $0.sourceType == .youtube }
-            .map { ($0, weight($0, favorite: store.isTrackFavorite($0))) }
+            .map { t -> (MediaTrack, Double) in
+                let isFavorite = favoriteIds.contains(t.id) || (t.youtubeId.map(favoriteVideos.contains) ?? false)
+                return (t, weight(t, favorite: isFavorite))
+            }
             .filter { $0.1 > 1 }
             .sorted { $0.1 > $1.1 }
         var perArtist: [String: Int] = [:], perMovie: [String: Int] = [:]
@@ -260,8 +274,8 @@ enum TasteBuilder {
         return chosen
     }
 
-    static func knownSongs(in store: PlaylistStore) -> [RecommendationService.KnownSong] {
-        store.allUniqueTracks.compactMap { t in
+    static func knownSongs(tracks: [MediaTrack]) -> [RecommendationService.KnownSong] {
+        tracks.compactMap { t in
             let key = YouTubeService.translit(t.coreTitle)   // spelling-tolerant, like the video titles it's compared with
             guard key.count >= 5 else { return nil }
             var context = PlaylistStore.splitArtists(t.artist).map { YouTubeService.translit($0) }.filter { $0.count >= 4 }
@@ -270,8 +284,8 @@ enum TasteBuilder {
         }
     }
 
-    static func profile(from store: PlaylistStore) -> RecommendationService.TasteProfile {
-        let artists = store.allArtists.filter { $0.totalPlayCount > 0 }
+    static func profile(tracks: [MediaTrack], artists allArtists: [ArtistGroup]) -> RecommendationService.TasteProfile {
+        let artists = allArtists.filter { $0.totalPlayCount > 0 }
         let maxPlays = Double(artists.map(\.totalPlayCount).max() ?? 1)
         var weights: [String: Double] = [:], display: [String: String] = [:], words: [String: [String]] = [:]
         for a in artists {
@@ -281,7 +295,7 @@ enum TasteBuilder {
             words[key] = a.name.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         }
         var langPlays: [String: Double] = [:]
-        for t in store.allUniqueTracks where t.totalPlays > 0 {
+        for t in tracks where t.totalPlays > 0 {
             let lang = t.releaseLanguage ?? (t.genre?.lowercased() == "bollywood" ? "hindi" : (t.isIndianRelease ? nil : "english"))
             if let lang { langPlays[lang, default: 0] += Double(t.totalPlays) }
         }

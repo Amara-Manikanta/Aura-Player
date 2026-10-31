@@ -11,6 +11,7 @@ public struct PlaylistDetailView: View {
     @State private var renameText: String = ""
     @State private var showDeleteAlert: Bool = false
     @State private var showMergeSheet: Bool = false
+    @State private var showAddSongs: Bool = false
     @State private var searchText: String = ""
     
     public init(playlist: Playlist, playlistStore: PlaylistStore, playback: PlaybackManager) {
@@ -20,6 +21,11 @@ public struct PlaylistDetailView: View {
         _renameText = State(initialValue: playlist.name)
     }
     
+    /// A real saved playlist (Most Played / Recently Added are generated lists you can't add to)
+    private var canAddSongs: Bool {
+        playlistStore.playlists.contains { $0.id == playlist.id }
+    }
+    
     private var currentPlaylist: Playlist {
         playlistStore.playlists.first(where: { $0.id == playlist.id }) ?? playlist
     }
@@ -27,14 +33,7 @@ public struct PlaylistDetailView: View {
     /// Songs matching the search: title, singer, album or movie; every word must match, and
     /// spelling variants count ("Chinnadana" finds "Chinnadhana")
     private var visibleTracks: [MediaTrack] {
-        let words = searchText.lowercased().split(separator: " ").map(String.init)
-        guard !words.isEmpty else { return currentPlaylist.tracks }
-        return currentPlaylist.tracks.filter { t in
-            let text = [t.title, t.artist, t.album ?? "", t.movieName ?? ""].joined(separator: " ")
-            let plain = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
-            let loose = YouTubeService.translit(text)
-            return words.allSatisfy { w in plain.contains(w) || loose.contains(YouTubeService.translit(w)) }
-        }
+        TrackSearchIndex.filter(currentPlaylist.tracks, query: searchText)
     }
     
     public var body: some View {
@@ -106,11 +105,17 @@ public struct PlaylistDetailView: View {
                             
                             Button {
                                 Haptics.medium()
+                                guard !currentPlaylist.tracks.isEmpty else { return }
                                 playback.isShuffled = true
-                                let shuffled = currentPlaylist.tracks.shuffled()
-                                if let first = shuffled.first {
-                                    playback.playTrack(first, inQueue: shuffled, context: .playlist(currentPlaylist.id))
+                                var pool = currentPlaylist.tracks
+                                if pool.count > 1, let current = playback.currentTrack {
+                                    pool.removeAll { $0.id == current.id }
                                 }
+                                pool.shuffle()
+                                let pick = pool.first ?? currentPlaylist.tracks.first!
+                                var fullQueue = currentPlaylist.tracks.filter { $0.id != pick.id }.shuffled()
+                                fullQueue.insert(pick, at: 0)
+                                playback.playTrack(pick, inQueue: fullQueue, context: .playlist(currentPlaylist.id))
                             } label: {
                                 HStack {
                                     Image(systemName: "shuffle")
@@ -122,8 +127,43 @@ public struct PlaylistDetailView: View {
                                 .frame(height: 50)
                                 .liquidGlass(cornerRadius: 25)
                             }
+                            
+                            if canAddSongs {
+                                Button {
+                                    Haptics.light()
+                                    showAddSongs = true
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(AuraTheme.textPrimary)
+                                        .frame(width: 50, height: 50)
+                                        .liquidGlass(cornerRadius: 25)
+                                }
+                                .accessibilityLabel("Add songs")
+                            }
                         }
                         .padding(.horizontal, 24)
+                    } else if canAddSongs {
+                        // Empty playlist: invite the first song
+                        Button {
+                            Haptics.light()
+                            showAddSongs = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "plus")
+                                Text("Add Songs")
+                            }
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(AuraTheme.primaryGradient)
+                            .cornerRadius(25)
+                        }
+                        .padding(.horizontal, 24)
+                        Text("Add songs by name or by pasting a YouTube link")
+                            .font(.system(size: 13))
+                            .foregroundColor(AuraTheme.textSecondary)
                     }
                     
                     // Search in this playlist
@@ -198,9 +238,33 @@ public struct PlaylistDetailView: View {
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle(currentPlaylist.name)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAddSongs) {
+            AddSongsSheet(playlistId: currentPlaylist.id, playlistStore: playlistStore)
+        }
         .toolbar {
+            // + : add songs by name or link (not for the generated lists like Most Played)
+            if canAddSongs {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Haptics.light()
+                        showAddSongs = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(AuraTheme.primary)
+                    }
+                    .accessibilityLabel("Add songs")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    if canAddSongs {
+                        Button {
+                            showAddSongs = true
+                        } label: {
+                            Label("Add Songs", systemImage: "plus")
+                        }
+                    }
                     if !currentPlaylist.tracks.isEmpty {
                         Button {
                             if let first = currentPlaylist.tracks.first {

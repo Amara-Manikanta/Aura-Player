@@ -25,6 +25,7 @@ import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.components.GlassSearchField
 import com.antigravity.auraplayer.ui.components.glass
 import com.antigravity.auraplayer.ui.components.ChangeVideoLinkDialog
+import com.antigravity.auraplayer.ui.components.ImportPlaylistDialog
 import com.antigravity.auraplayer.ui.components.MergePlaylistDialog
 import com.antigravity.auraplayer.ui.components.TrackRow
 import com.antigravity.auraplayer.ui.theme.*
@@ -69,6 +70,7 @@ fun PlaylistDetailScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     var showMergeDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
     var trackToChangeVideo by remember { mutableStateOf<MediaTrack?>(null) }
     var showHeaderMenu by remember { mutableStateOf(false) }
 
@@ -122,6 +124,14 @@ fun PlaylistDetailScreen(
                                     showMergeDialog = true
                                 },
                                 leadingIcon = { Icon(Icons.Default.MergeType, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import Songs from Link / Text...") },
+                                onClick = {
+                                    showHeaderMenu = false
+                                    showImportDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = NeonPurple) }
                             )
                             if (!playlist.isBuiltIn) {
                                 DropdownMenuItem(
@@ -316,6 +326,17 @@ fun PlaylistDetailScreen(
                 repository.updateTrackVideo(tr.id, newId)
                 trackToChangeVideo = null
             }
+        )
+    }
+
+    // Import Songs Dialog
+    if (showImportDialog) {
+        ImportPlaylistDialog(
+            repository = repository,
+            targetPlaylistId = playlist.id,
+            targetPlaylistName = playlist.name,
+            onDismiss = { showImportDialog = false },
+            onImportSuccess = { _, _ -> }
         )
     }
 }

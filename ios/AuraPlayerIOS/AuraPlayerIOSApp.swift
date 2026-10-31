@@ -14,7 +14,10 @@ struct AuraPlayerIOSApp: App {
         // Like the Mac app: pick up Apple Music play counts / new songs at launch and on return
         // (at most every 10 minutes, and only after access was allowed from Settings)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await AppleMusicSync.shared.autoSync() } }
+            if phase == .active {
+                Task { await AppleMusicSync.shared.autoSync() }
+                Task { await MacSyncClient.shared.autoSync() }
+            }
         }
     }
 }

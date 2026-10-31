@@ -13,7 +13,12 @@
   <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20macOS%20%7C%20Android-blue?style=for-the-badge&logo=apple" />
   <img src="https://img.shields.io/badge/Language-Swift%206%20%7C%20Kotlin-F05138?style=for-the-badge&logo=swift" />
   <img src="https://img.shields.io/badge/Theme-AMOLED%20Dark%20%230D0D11-black?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Accent-Echo%20Coral%20%23ED5564-FF5768?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Android%20APK-Download%20v1.0.0-34D399?style=for-the-badge&logo=android&logoColor=white" />
+</p>
+
+<p align="center">
+  <a href="https://amara-manikanta.github.io/Aura-Player/"><b>🌐 Official Website & Direct APK Download</b></a> •
+  <a href="https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk"><b>⬇️ Direct APK Link (25 MB)</b></a>
 </p>
 
 ---

@@ -30,9 +30,9 @@ public struct SansaPlayerView: View {
         self.onOpenSettings = onOpenSettings
     }
     
-    private var currentProgress: Double {
+    private func currentProgress(at time: TimeInterval) -> Double {
         guard playback.duration > 0 else { return 0 }
-        return (playback.currentTime / playback.duration).clamped(to: 0...1)
+        return (time / playback.duration).clamped(to: 0...1)
     }
     
     public var body: some View {
@@ -307,6 +307,7 @@ public struct SansaPlayerView: View {
                             }
                             
                             // Retro LCD Scrubber Bar
+                            ClockObserver(playback.clock) { time in
                             VStack(spacing: 3) {
                                 GeometryReader { geo in
                                     ZStack(alignment: .leading) {
@@ -322,14 +323,14 @@ public struct SansaPlayerView: View {
                                                     endPoint: .trailing
                                                 )
                                             )
-                                            .frame(width: max(0, geo.size.width * currentProgress), height: 5)
+                                            .frame(width: max(0, geo.size.width * currentProgress(at: time)), height: 5)
                                             .shadow(color: SansaTheme.neonBlue.opacity(0.8), radius: 4)
                                     }
                                 }
                                 .frame(height: 5)
                                 
                                 HStack {
-                                    Text(formatTime(playback.currentTime))
+                                    Text(formatTime(time))
                                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                                         .foregroundColor(SansaTheme.lcdTextCyan)
                                     Spacer()
@@ -340,6 +341,7 @@ public struct SansaPlayerView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.bottom, 10)
+                            }
                         }
                     }
                     .frame(height: playback.displayMode == .video ? 310 : 258)

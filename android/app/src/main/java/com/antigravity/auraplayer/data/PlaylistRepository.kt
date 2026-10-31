@@ -147,6 +147,17 @@ class PlaylistRepository private constructor(private val context: Context) {
         return newPlaylist
     }
 
+    fun createPlaylistWithTracks(name: String, tracks: List<MediaTrack>, iconName: String = "playlist_play"): Playlist {
+        val newPlaylist = Playlist(
+            name = name.trim().ifEmpty { "New Playlist" },
+            iconName = iconName,
+            tracks = tracks
+        )
+        _playlists.value = _playlists.value + newPlaylist
+        savePlaylists()
+        return newPlaylist
+    }
+
     fun renamePlaylist(id: String, newName: String) {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) return
@@ -172,6 +183,29 @@ class PlaylistRepository private constructor(private val context: Context) {
             } else pl
         }
         savePlaylists()
+    }
+
+    fun addTracksToPlaylist(playlistId: String, newTracks: List<MediaTrack>, allowDuplicate: Boolean = false): Int {
+        if (newTracks.isEmpty()) return 0
+        var addedCount = 0
+        _playlists.value = _playlists.value.map { pl ->
+            if (pl.id == playlistId) {
+                val current = pl.tracks.toMutableList()
+                for (t in newTracks) {
+                    val exists = current.any { isSameSong(it, t) }
+                    if (!exists) {
+                        current.add(t)
+                        addedCount++
+                    } else if (allowDuplicate) {
+                        current.add(t.copy(id = UUID.randomUUID().toString()))
+                        addedCount++
+                    }
+                }
+                pl.copy(tracks = current)
+            } else pl
+        }
+        if (addedCount > 0) savePlaylists()
+        return addedCount
     }
 
     /** Playlists that already contain the given song. */

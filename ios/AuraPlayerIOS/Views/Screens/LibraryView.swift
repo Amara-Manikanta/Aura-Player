@@ -5,6 +5,9 @@ public struct LibraryView: View {
     @ObservedObject var playback: PlaybackManager
     
     @State private var showNewPlaylistDialog: Bool = false
+    @State private var backupURL: URL?
+    /// The playlist just made: opened straight away so it's clear it worked (new ones sit at the bottom of a long list)
+    @State private var createdPlaylist: Playlist?
     @State private var newPlaylistTitle: String = ""
     @State private var playlistToRename: Playlist?
     @State private var renameText: String = ""
@@ -224,7 +227,7 @@ public struct LibraryView: View {
                             
                             VStack(spacing: 8) {
                                 // 1. Share / Export Backup
-                                if let backupURL = playlistStore.createBackupFileURL() {
+                                if let backupURL {
                                     ShareLink(
                                         item: backupURL,
                                         preview: SharePreview("AuraPlayer Library Backup", icon: Image(systemName: "arrow.down.doc.fill"))
@@ -325,6 +328,11 @@ public struct LibraryView: View {
                     }
                 }
             }
+            .navigationDestination(item: $createdPlaylist) { pl in
+                PlaylistDetailView(playlist: pl, playlistStore: playlistStore, playback: playback)
+            }
+            // The backup file is made once, off the main thread (it used to be rebuilt on every redraw)
+            .task { backupURL = await playlistStore.createBackupFile() }
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -346,7 +354,9 @@ public struct LibraryView: View {
                 TextField("Playlist name", text: $newPlaylistTitle)
                 Button("Create") {
                     if !newPlaylistTitle.trimmingCharacters(in: .whitespaces).isEmpty {
-                        _ = playlistStore.createPlaylist(name: newPlaylistTitle)
+                        createdPlaylist = playlistStore.createPlaylist(
+                            name: newPlaylistTitle.trimmingCharacters(in: .whitespacesAndNewlines))
+                        Haptics.success()
                         newPlaylistTitle = ""
                     }
                 }

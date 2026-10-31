@@ -110,25 +110,37 @@ public struct VideoFullScreenView: View {
             .padding(.horizontal, 20)
             .padding(.top, landscape ? 20 : 54)
             Spacer()
-            HStack(spacing: 10) {
-                Text(timeString(playback.currentTime))
-                Slider(
-                    value: Binding(get: { playback.currentTime }, set: { playback.seek(to: $0); poke() }),
-                    in: 0...max(playback.duration, 1)
-                )
-                .tint(.white)
-                Text(timeString(playback.duration))
+            ClockObserver(playback.clock) { time in
+                HStack(spacing: 10) {
+                    Text(timeString(time))
+                    Slider(
+                        value: Binding(get: { time }, set: { playback.seek(to: $0); poke() }),
+                        in: 0...max(playback.duration, 1)
+                    )
+                    .tint(.white)
+                    Text(timeString(playback.duration))
+                }
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.white)
             .padding(.horizontal, landscape ? 60 : 24)
-            HStack(spacing: 36) {
+            HStack(spacing: 24) {
+                // 👎 wrong video: switch to the next best one
+                Button { Haptics.medium(); playback.rejectCurrentVideo(); poke() } label: {
+                    Image(systemName: "hand.thumbsdown").font(.system(size: 22))
+                }
                 Button { playback.playPrevious(); poke() } label: { Image(systemName: "backward.fill") }
                 Button { playback.togglePlayPause(); poke() } label: {
                     Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 48))
                 }
                 Button { playback.playNext(); poke() } label: { Image(systemName: "forward.fill") }
+                // 👍 right video: always play it for this song
+                Button { Haptics.light(); playback.confirmCurrentVideo(); poke() } label: {
+                    Image(systemName: playback.isCurrentVideoConfirmed ? "hand.thumbsup.fill" : "hand.thumbsup")
+                        .font(.system(size: 22))
+                        .foregroundStyle(playback.isCurrentVideoConfirmed ? Color.green : .white)
+                }
             }
             .font(.system(size: 24))
             .foregroundStyle(.white)

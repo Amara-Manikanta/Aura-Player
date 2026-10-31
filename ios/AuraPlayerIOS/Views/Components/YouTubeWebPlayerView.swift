@@ -37,7 +37,6 @@ private struct WebPlayerContainer: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         guard isActiveHost, playback.webView.superview !== uiView else { return }
         attach(to: uiView)
-        print("[pp] reattached webView, isPlaying=\(playback.isPlaying) host=\(playback.activeVideoHost ?? "-")")
         if playback.isPlaying {
             playback.webView.evaluateJavaScript("playVideo();", completionHandler: nil)
         }

@@ -50,15 +50,13 @@ public struct ChangeVideoLinkSheet: View {
                                 
                                 // Paste a link copied from Discover / YouTube in one tap
                                 if inputUrlOrId.isEmpty {
-                                    Button {
-                                        if let text = UIPasteboard.general.string { inputUrlOrId = text.trimmingCharacters(in: .whitespacesAndNewlines) }
-                                    } label: {
-                                        Image(systemName: "doc.on.clipboard")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(AuraTheme.primary)
-                                            .frame(width: 40, height: 40)
-                                            .liquidGlass(cornerRadius: 12)
+                                    // Apple's own paste button: no "allow paste" prompt
+                                    PasteButton(payloadType: String.self) { strings in
+                                        if let pasted = strings.first { inputUrlOrId = pasted.trimmingCharacters(in: .whitespacesAndNewlines) }
                                     }
+                                    .labelStyle(.iconOnly)
+                                    .buttonBorderShape(.capsule)
+                                    .tint(AuraTheme.primary)
                                 }
                                 
                                 Button("Apply") {

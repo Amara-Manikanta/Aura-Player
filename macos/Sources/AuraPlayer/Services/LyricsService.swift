@@ -52,6 +52,18 @@ public actor LyricsService {
             return lyrics
         }
         
+        // Try JioSaavn fallback for Indian / regional tracks
+        if let lyrics = await fetchFromJioSaavn(artist: cleanArtist, title: cleanTitle) {
+            cache[cacheKey] = lyrics
+            return lyrics
+        }
+        
+        // Try Lyrics.ovh fallback for English / international tracks
+        if let lyrics = await fetchFromLyricsOvh(artist: cleanArtist, title: cleanTitle) {
+            cache[cacheKey] = lyrics
+            return lyrics
+        }
+        
         return nil
     }
     
@@ -110,6 +122,82 @@ public actor LyricsService {
             
             let parsedSynced = parseLrc(synced)
             return SongLyrics(plainLyrics: plain, syncedLines: parsedSynced)
+        } catch {
+            return nil
+        }
+    }
+    
+    private func fetchFromJioSaavn(artist: String, title: String) async -> SongLyrics? {
+        guard let query = "\(title) \(artist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+        guard let searchUrl = URL(string: "https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=\(query)") else { return nil }
+        
+        do {
+            var searchReq = URLRequest(url: searchUrl)
+            searchReq.timeoutInterval = 6
+            searchReq.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
+            let (searchData, _) = try await URLSession.shared.data(for: searchReq)
+            guard let searchJson = try? JSONSerialization.jsonObject(with: searchData) as? [String: Any],
+                  let songsObj = searchJson["songs"] as? [String: Any],
+                  let songsData = songsObj["data"] as? [[String: Any]],
+                  let firstSong = songsData.first,
+                  let songUrlStr = firstSong["url"] as? String,
+                  let songUrl = URL(string: songUrlStr) else { return nil }
+                  
+            var pageReq = URLRequest(url: songUrl)
+            pageReq.timeoutInterval = 6
+            pageReq.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
+            let (pageData, _) = try await URLSession.shared.data(for: pageReq)
+            guard let html = String(data: pageData, encoding: .utf8) else { return nil }
+            
+            let pattern = #"\"lyrics\":\{(\"content\":\".*?\"),\"copyright\""#
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+                  let r = Range(match.range(at: 1), in: html) else { return nil }
+                  
+            let jsonFragment = "{" + String(html[r]) + "}"
+            guard let fragmentData = jsonFragment.data(using: .utf8),
+                  let fragJson = try? JSONSerialization.jsonObject(with: fragmentData) as? [String: Any],
+                  let content = fragJson["content"] as? String,
+                  !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                  
+            let lines = content.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            guard !lines.isEmpty else { return nil }
+            
+            let synced = lines.enumerated().map { i, text in
+                LyricLine(time: 15.0 + Double(i) * 5.0, text: text)
+            }
+            return SongLyrics(plainLyrics: content, syncedLines: synced)
+        } catch {
+            return nil
+        }
+    }
+    
+    private func fetchFromLyricsOvh(artist: String, title: String) async -> SongLyrics? {
+        var coreTitle = title
+        if let r = coreTitle.range(of: #"\s*[\(\[].*$"#, options: .regularExpression) { coreTitle.removeSubrange(r) }
+        coreTitle = coreTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        let firstArt = ArtistPhotoService.firstArtist(of: artist)
+        guard let encArt = firstArt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let encTitle = coreTitle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://api.lyrics.ovh/v1/\(encArt)/\(encTitle)") else { return nil }
+              
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 6
+            request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let lyricsText = json["lyrics"] as? String,
+                  lyricsText.count > 30 else { return nil }
+                  
+            let lines = lyricsText.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            guard !lines.isEmpty else { return nil }
+            let synced = lines.enumerated().map { i, text in
+                LyricLine(time: 15.0 + Double(i) * 5.0, text: text)
+            }
+            return SongLyrics(plainLyrics: lyricsText, syncedLines: synced)
         } catch {
             return nil
         }

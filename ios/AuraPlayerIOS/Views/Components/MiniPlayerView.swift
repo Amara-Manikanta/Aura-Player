@@ -9,9 +9,9 @@ public struct MiniPlayerView: View {
         self.onExpand = onExpand
     }
     
-    private var progress: Double {
+    private func progress(at time: TimeInterval) -> Double {
         guard playback.duration > 0 else { return 0 }
-        return (playback.currentTime / playback.duration).clamped(to: 0...1)
+        return (time / playback.duration).clamped(to: 0...1)
     }
     
     public var body: some View {
@@ -20,15 +20,17 @@ public struct MiniPlayerView: View {
         return AnyView(
             ZStack(alignment: .top) {
                     // Top Micro-Progress Bar
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(AuraTheme.glassBorder)
-                                .frame(height: 2.5)
-                            
-                            Rectangle()
-                                .fill(AuraTheme.primaryGradient)
-                                .frame(width: geo.size.width * progress, height: 2.5)
+                    ClockObserver(playback.clock) { time in
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(AuraTheme.glassBorder)
+                                    .frame(height: 2.5)
+                                
+                                Rectangle()
+                                    .fill(AuraTheme.primaryGradient)
+                                    .frame(width: geo.size.width * progress(at: time), height: 2.5)
+                            }
                         }
                     }
                     .frame(height: 2.5)

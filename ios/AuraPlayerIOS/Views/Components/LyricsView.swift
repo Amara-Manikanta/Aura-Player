@@ -12,26 +12,34 @@ public struct LyricsView: View {
     }
     
     public var body: some View {
-        content
-            .sheet(isPresented: $showEditor) {
-                if let track = playback.currentTrack { LyricsEditorSheet(track: track, playback: playback) }
+        ZStack {
+            if let track = playback.currentTrack,
+               let deity = DevotionalDeity.detect(track: track) {
+                DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
+                    .allowsHitTesting(false)
             }
-            .overlay(alignment: .topTrailing) {
-                // Fix wrong lyrics or timing
-                if !compact, playback.currentTrack != nil, let l = playback.lyrics, l.isSynced || !(l.plainLyrics ?? "").isEmpty {
-                    Button {
-                        Haptics.light()
-                        showEditor = true
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(AuraTheme.textPrimary)
-                            .frame(width: 36, height: 36)
-                            .liquidGlass(cornerRadius: 18)
-                    }
-                    .padding(.trailing, 12)
+            
+            content
+                .sheet(isPresented: $showEditor) {
+                    if let track = playback.currentTrack { LyricsEditorSheet(track: track, playback: playback) }
                 }
-            }
+                .overlay(alignment: .topTrailing) {
+                    // Fix wrong lyrics or timing
+                    if !compact, playback.currentTrack != nil, let l = playback.lyrics, l.isSynced || !(l.plainLyrics ?? "").isEmpty {
+                        Button {
+                            Haptics.light()
+                            showEditor = true
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(AuraTheme.textPrimary)
+                                .frame(width: 36, height: 36)
+                                .liquidGlass(cornerRadius: 18)
+                        }
+                        .padding(.trailing, 12)
+                    }
+                }
+        }
     }
     
     @ViewBuilder
@@ -95,10 +103,15 @@ public struct LyricsView: View {
                                     .frame(maxWidth: .infinity)
                                     .background {
                                         if isActive {
+                                            let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                                             RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
                                                 .fill(
                                                     LinearGradient(
-                                                        colors: [
+                                                        colors: isDevotional ? [
+                                                            Color(red: 1.0, green: 0.85, blue: 0.4).opacity(0.24),
+                                                            Color(red: 1.0, green: 0.55, blue: 0.1).opacity(0.18),
+                                                            Color.white.opacity(0.08)
+                                                        ] : [
                                                             Color.white.opacity(0.18),
                                                             AuraTheme.primary.opacity(0.14),
                                                             Color.white.opacity(0.06)
@@ -111,7 +124,11 @@ public struct LyricsView: View {
                                                     RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
                                                         .stroke(
                                                             LinearGradient(
-                                                                colors: [
+                                                                colors: isDevotional ? [
+                                                                    Color(red: 1.0, green: 0.88, blue: 0.5).opacity(0.65),
+                                                                    Color(red: 1.0, green: 0.6, blue: 0.1).opacity(0.4),
+                                                                    Color.white.opacity(0.12)
+                                                                ] : [
                                                                     Color.white.opacity(0.55),
                                                                     AuraTheme.primary.opacity(0.35),
                                                                     Color.white.opacity(0.08)
@@ -122,7 +139,7 @@ public struct LyricsView: View {
                                                             lineWidth: 1.2
                                                         )
                                                 )
-                                                .shadow(color: AuraTheme.primary.opacity(0.35), radius: 14, x: 0, y: 4)
+                                                .shadow(color: (isDevotional ? Color.orange : AuraTheme.primary).opacity(0.35), radius: 14, x: 0, y: 4)
                                                 .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
                                                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
                                         }

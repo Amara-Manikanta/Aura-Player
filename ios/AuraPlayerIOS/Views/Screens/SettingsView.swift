@@ -10,10 +10,22 @@ public struct SettingsView: View {
     @State private var showFileImporter: Bool = false
     @State private var showResetConfirmation: Bool = false
     @State private var statusToast: String?
+    @State private var backupURL: URL?
     @ObservedObject private var appleMusic = AppleMusicSync.shared
+    @ObservedObject private var macSync = MacSyncClient.shared
+    @State private var showPairing = false
+    @State private var pairingCode = ""
     
     public init(playlistStore: PlaylistStore) {
         self.playlistStore = playlistStore
+    }
+    
+    private var macSyncSubtitle: String {
+        if macSync.isSyncing { return "Syncing with your Mac…" }
+        if let result = macSync.lastResult { return result }
+        if !macSync.isPaired { return "Enter the code from the Mac app (Sync ▸ iPhone Sync)" }
+        if let last = macSync.lastSync { return "Synced \(last.formatted(.relative(presentation: .named))). Tap to sync again" }
+        return "Tap to sync with your Mac over Wi-Fi"
     }
     
     public var body: some View {
@@ -184,6 +196,45 @@ public struct SettingsView: View {
                                 .padding(14)
                                 .liquidGlass(cornerRadius: 14)
                                 
+                                // Mac: the same playlists, play counts, videos and lyrics on both, over Wi-Fi
+                                Button {
+                                    if macSync.isPaired {
+                                        Task { statusToast = await macSync.syncNow() }
+                                    } else {
+                                        pairingCode = ""
+                                        showPairing = true
+                                    }
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Label("Sync with Mac", systemImage: "laptopcomputer.and.iphone")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 15, weight: .semibold))
+                                            Text(macSyncSubtitle)
+                                                .font(.system(size: 11))
+                                                .foregroundColor(AuraTheme.textTertiary)
+                                                .multilineTextAlignment(.leading)
+                                        }
+                                        Spacer()
+                                        if macSync.isSyncing {
+                                            ProgressView().tint(AuraTheme.primary)
+                                        } else {
+                                            Image(systemName: macSync.isPaired ? "arrow.triangle.2.circlepath" : "link")
+                                                .foregroundColor(AuraTheme.primary)
+                                        }
+                                    }
+                                    .padding(14)
+                                    .liquidGlass(cornerRadius: 14)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(macSync.isSyncing)
+                                .contextMenu {
+                                    if macSync.isPaired {
+                                        Button("Use a Different Code…") { pairingCode = ""; showPairing = true }
+                                        Button("Forget This Mac", role: .destructive) { macSync.forget() }
+                                    }
+                                }
+                                
                                 // Apple Music: play counts, Recently Added and new songs from this iPhone's library
                                 Button {
                                     Task { statusToast = await appleMusic.syncNow() }
@@ -213,7 +264,7 @@ public struct SettingsView: View {
                                 .disabled(appleMusic.isSyncing)
                                 
                                 // Export Backup
-                                if let backupURL = playlistStore.createBackupFileURL() {
+                                if let backupURL {
                                     ShareLink(
                                         item: backupURL,
                                         preview: SharePreview("AuraPlayer Library Backup", icon: Image(systemName: "arrow.down.doc.fill"))
@@ -294,6 +345,17 @@ public struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .task { backupURL = await playlistStore.createBackupFile() }
+            .alert("Pair with Mac", isPresented: $showPairing) {
+                TextField("6-digit code", text: $pairingCode)
+                    .keyboardType(.numberPad)
+                Button("Sync") {
+                    Task { statusToast = await macSync.pair(code: pairingCode) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Open Aura Player on your Mac and choose Sync ▸ iPhone Sync to see the code. Both need to be on the same Wi-Fi.")
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {

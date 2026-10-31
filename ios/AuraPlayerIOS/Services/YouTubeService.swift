@@ -221,6 +221,29 @@ public actor YouTubeService {
         return String(data: data, encoding: .utf8)
     }
     
+    /// Real title, channel and length for a pasted link (the search page only knows the video id)
+    public func linkDetails(videoId: String) async -> YouTubeSearchResult? {
+        guard let oembed = URL(string: "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=\(videoId)&format=json") else { return nil }
+        var request = URLRequest(url: oembed)
+        request.timeoutInterval = 8
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let title = json["title"] as? String else { return nil }
+        let channel = (json["author_name"] as? String) ?? "YouTube"
+        // Only the watch page has the length
+        var seconds: TimeInterval = 0
+        if let page = URL(string: "https://www.youtube.com/watch?v=\(videoId)"), let html = await fetchHTML(page),
+           let r = html.range(of: #""lengthSeconds":"(\d+)""#, options: .regularExpression) {
+            seconds = TimeInterval(html[r].filter(\.isNumber)) ?? 0
+        }
+        return YouTubeSearchResult(
+            id: videoId, title: title, channel: channel, duration: seconds,
+            thumbnailURL: "https://i.ytimg.com/vi/\(videoId)/hqdefault.jpg",
+            url: "https://www.youtube.com/watch?v=\(videoId)"
+        )
+    }
+    
     /// Fetches live search suggestions as the user types
     public func getSuggestions(query: String) async -> [String] {
         let clean = query.trimmingCharacters(in: .whitespacesAndNewlines)

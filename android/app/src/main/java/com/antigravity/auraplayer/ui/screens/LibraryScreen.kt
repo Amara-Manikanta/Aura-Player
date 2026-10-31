@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.Playlist
+import com.antigravity.auraplayer.ui.components.ImportPlaylistDialog
 import com.antigravity.auraplayer.ui.components.glass
 import com.antigravity.auraplayer.ui.theme.*
 
@@ -39,6 +40,7 @@ fun LibraryScreen(
         Triple(repository.mostPlayedTracks.size, repository.allUniqueTracks.size, repository.allArtists.size)
     }
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     val favorites = playlists.firstOrNull { it.id == repository.favoritesPlaylistId }
 
@@ -62,11 +64,22 @@ fun LibraryScreen(
         item { LibraryLink(Icons.Default.History, Color(0xFF6FE3D8), "Recently Added", "%,d tracks".format(counts.second), onRecentlyAdded) }
         item { LibraryLink(Icons.Default.NewReleases, Color(0xFFE38CF2), "New Releases", "Latest YouTube music drops", onNewReleases) }
         item { LibraryLink(Icons.Default.Mic, Color(0xFF8FB8FF), "Singers & Artists", "%,d artists".format(counts.third), onArtists) }
+        item { LibraryLink(Icons.Default.CloudDownload, Color(0xFF2BC5B4), "Import Playlist", "YouTube, Spotify, JioSaavn, Gaana...") { showImportDialog = true } }
 
         item {
             Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Playlists", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = { showNewPlaylistDialog = true }, modifier = Modifier.size(38.dp).background(Color.White, RoundedCornerShape(50))) {
+                IconButton(
+                    onClick = { showImportDialog = true },
+                    modifier = Modifier.size(38.dp).glass(RoundedCornerShape(50))
+                ) {
+                    Icon(Icons.Default.CloudDownload, contentDescription = "Import Playlist", tint = TextPrimary)
+                }
+                Spacer(Modifier.width(8.dp))
+                IconButton(
+                    onClick = { showNewPlaylistDialog = true },
+                    modifier = Modifier.size(38.dp).background(Color.White, RoundedCornerShape(50))
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "New Playlist", tint = BackdropMid)
                 }
             }
@@ -100,6 +113,18 @@ fun LibraryScreen(
                 }) { Text("Create") }
             },
             dismissButton = { TextButton(onClick = { showNewPlaylistDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showImportDialog) {
+        ImportPlaylistDialog(
+            repository = repository,
+            onDismiss = { showImportDialog = false },
+            onImportSuccess = { newId, count ->
+                if (newId != null) {
+                    onSelectPlaylist(newId)
+                }
+            }
         )
     }
 }

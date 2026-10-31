@@ -13,6 +13,7 @@ public struct FullPlayerSheet: View {
     @State private var showAddToPlaylist: Bool = false
     @State private var showChangeVideo: Bool = false
     @State private var showTrimTimes: Bool = false
+    @State private var showLyricsEditor: Bool = false
     @State private var showFullScreenVideo: Bool = false
     
     public init(playback: PlaybackManager, playlistStore: PlaylistStore) {
@@ -20,10 +21,16 @@ public struct FullPlayerSheet: View {
         self.playlistStore = playlistStore
     }
     
-    private var currentProgress: Double {
+    /// Synced or plain lyrics were found for the playing song
+    private var hasLyrics: Bool {
+        guard let lyrics = playback.lyrics else { return false }
+        return lyrics.isSynced || !(lyrics.plainLyrics ?? "").isEmpty
+    }
+    
+    private func currentProgress(at time: TimeInterval) -> Double {
         if isDraggingSlider { return sliderValue }
         guard playback.duration > 0 else { return 0 }
-        return (playback.currentTime / playback.duration).clamped(to: 0...1)
+        return (time / playback.duration).clamped(to: 0...1)
     }
     
     private var artworkDimension: CGFloat {
@@ -101,6 +108,13 @@ public struct FullPlayerSheet: View {
                             
                             Menu {
                                 Button {
+                                    UIPasteboard.general.string = CurrentSongMenu.nameToCopy(track)
+                                    Haptics.light()
+                                } label: {
+                                    Label("Copy Song Name", systemImage: "doc.on.doc")
+                                }
+                                
+                                Button {
                                     showAddToPlaylist = true
                                 } label: {
                                     Label("Add to Playlist", systemImage: "text.badge.plus")
@@ -110,6 +124,12 @@ public struct FullPlayerSheet: View {
                                     showChangeVideo = true
                                 } label: {
                                     Label("Change Video Link", systemImage: "link")
+                                }
+                                
+                                Button {
+                                    showLyricsEditor = true
+                                } label: {
+                                    Label(CustomLyricsStore.shared.hasLyrics(for: track) ? "Edit My Lyrics…" : "Add / Sync Lyrics…", systemImage: "text.quote")
                                 }
                                 
                                 Section("Start & End Time") {
@@ -251,7 +271,20 @@ public struct FullPlayerSheet: View {
                            ? UIScreen.main.bounds.width * 9 / 16
                            : artworkDimension + 20)
                     
-                    Spacer(minLength: 12)
+                    // Video tab: the lyrics fill the space under the video, when there are any
+                    if playback.displayMode == .video && hasLyrics {
+                        LyricsView(playback: playback, compact: true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.top, 6)
+                            .mask(
+                                // fade the lines out at the top and bottom edge
+                                LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),
+                                                       .init(color: .black, location: 0.88), .init(color: .clear, location: 1)],
+                                               startPoint: .top, endPoint: .bottom)
+                            )
+                    } else {
+                        Spacer(minLength: 12)
+                    }
                     
                     if let error = playback.errorMessage {
                         Text(error)
@@ -314,10 +347,11 @@ public struct FullPlayerSheet: View {
                     .padding(.horizontal, 28)
                     
                     // Scrubber Bar & Timestamps
+                    ClockObserver(playback.clock) { time in
                     VStack(spacing: 4) {
                         Slider(
                             value: Binding(
-                                get: { currentProgress },
+                                get: { currentProgress(at: time) },
                                 set: { val in
                                     isDraggingSlider = true
                                     sliderValue = val
@@ -335,7 +369,7 @@ public struct FullPlayerSheet: View {
                         .tint(AuraTheme.primary)
                         
                         HStack {
-                            Text(formatTime(isDraggingSlider ? sliderValue * playback.duration : playback.currentTime))
+                            Text(formatTime(isDraggingSlider ? sliderValue * playback.duration : time))
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundColor(AuraTheme.textTertiary)
                             Spacer()
@@ -346,6 +380,7 @@ public struct FullPlayerSheet: View {
                     }
                     .padding(.horizontal, 28)
                     .padding(.top, 4)
+                    }
                     
                     // Media Controls
                     HStack {
@@ -418,6 +453,7 @@ public struct FullPlayerSheet: View {
                         Button {
                             Haptics.light()
                             playback.repeatMode = (playback.repeatMode + 1) % 3
+                            playback.rememberSettings()
                         } label: {
                             Image(systemName: playback.repeatMode == 2 ? "repeat.1" : "repeat")
                                 .font(.system(size: 20, weight: .semibold))
@@ -444,6 +480,9 @@ public struct FullPlayerSheet: View {
         }
         .sheet(isPresented: $showChangeVideo) {
             ChangeVideoLinkSheet(track: track, store: playlistStore, playback: playback)
+        }
+        .sheet(isPresented: $showLyricsEditor) {
+            if let current = playback.currentTrack { LyricsEditorSheet(track: current, playback: playback) }
         }
         .sheet(isPresented: $showTrimTimes) {
             TrimTimesSheet(track: track, store: playlistStore, playback: playback)

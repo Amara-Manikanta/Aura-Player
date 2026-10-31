@@ -13,6 +13,7 @@ public struct ArtistGroup: Identifiable, Hashable, Sendable {
 extension PlaylistStore {
     /// Every artist, songs with several singers listed under each of them (same rules as the Mac app)
     public var allArtists: [ArtistGroup] {
+        if let cached = derived.artists { return cached }
         var tracksByArtist: [String: [MediaTrack]] = [:]
         var spellings: [String: [String: Int]] = [:]   // key → how often each spelling appears
 
@@ -25,7 +26,7 @@ extension PlaylistStore {
             }
         }
 
-        return tracksByArtist.map { key, tracks in
+        let groups = tracksByArtist.map { key, tracks in
             // "S.P. Balasubrahmanyam" / "S. P. Balasubrahmanyam": show the spelling used most
             let name = spellings[key]?.max { $0.value < $1.value }?.key ?? key
             return ArtistGroup(
@@ -37,16 +38,29 @@ extension PlaylistStore {
             )
         }
         .sorted { ($0.trackCount, $0.name) > ($1.trackCount, $1.name) }
+        derived.artists = groups
+        return groups
     }
 
     /// Names that contain a separator but are one act
-    private static let wholeNames = ["Simon & Garfunkel", "Earth, Wind & Fire", "Hall & Oates", "Florence + The Machine",
+    nonisolated private static let wholeNames = ["Simon & Garfunkel", "Earth, Wind & Fire", "Hall & Oates", "Florence + The Machine",
                                      "Mumford & Sons", "Years & Years", "Of Monsters and Men", "Tom & Jerry",
                                      "Shankar-Ehsaan-Loy", "Vishal-Shekhar", "Vishal & Shekhar", "Salim-Sulaiman", "Salim–Sulaiman",
                                      "Sachin-Jigar", "Jatin-Lalit", "Laxmikant-Pyarelal", "Nadeem-Shravan"]
 
     /// "Zedd & Katy Perry" → ["Zedd", "Katy Perry"]; "Hari (Live), Chitra feat. X" → ["Hari", "Chitra", "X"]
-    public static func splitArtists(_ raw: String) -> [String] {
+    nonisolated public static func splitArtists(_ raw: String) -> [String] {
+        // Most artist names are plain ("Anirudh Ravichander"): skip the regex work for them
+        let needsSplitting = raw.contains(where: { "&,;/+()[]".contains($0) })
+            || raw.localizedCaseInsensitiveContains(" feat") || raw.localizedCaseInsensitiveContains(" ft")
+            || raw.localizedCaseInsensitiveContains(" with ") || raw.localizedCaseInsensitiveContains(" vs")
+            || raw.localizedCaseInsensitiveContains(" x ")
+        if !needsSplitting {
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = ArtistPhotoService.normalize(name)
+            if key.isEmpty || name.lowercased() == "various artists" || name == "Unknown Artist" { return [] }
+            return [name]
+        }
         var text = raw.replacingOccurrences(of: #"\s*[\(\[][^\)\]]*[\)\]]"#, with: "", options: .regularExpression)
 
         // Shield acts whose names contain "&" or "," so they stay in one piece

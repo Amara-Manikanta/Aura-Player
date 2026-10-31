@@ -73,25 +73,35 @@ public class BackgroundAudioKeepAlive {
         }
     }
     
+    /// Audio session changes can block for a while (iOS warns about doing them on the main thread:
+    /// buttons stopped responding), so they run here, one at a time
+    private static let sessionQueue = DispatchQueue(label: "aura.audio-session", qos: .userInitiated)
+    
+    private static var sessionActivated = false
+    
+    /// Once is enough: activating again while the web player is playing interrupts its audio
+    public static func activateSession() {
+        sessionQueue.async {
+            guard !sessionActivated else { return }
+            sessionActivated = true
+            do {
+                // Only the category: the web player's own audio session activates itself. Activating a
+                // second session from the app was interrupting it (see aura_log.txt)
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .moviePlayback)
+                try session.setActive(true)
+                AppLog.log("audio session active (playback)")
+            } catch {
+                print("Failed to set audio category: \(error)")
+            }
+        }
+    }
+    
+    /// The silent loop is off: the log showed iOS pausing the video about half a second after it
+    /// started (the second audio source interrupted the web player's audio session).
     public func start() {
         isStarted = true
-        do {
-            let session = AVAudioSession.sharedInstance()
-            if session.category != .playback {
-                try session.setCategory(.playback, mode: .moviePlayback)
-            }
-            try session.setActive(true)
-        } catch {
-            print("BackgroundAudioKeepAlive failed to activate audio session: \(error)")
-        }
-        
-        if audioPlayer == nil {
-            setupPlayer()
-        }
-        
-        if audioPlayer?.isPlaying != true {
-            audioPlayer?.play()
-        }
+        AppLog.log("keep-alive start skipped")
     }
     
     public func stop() {
