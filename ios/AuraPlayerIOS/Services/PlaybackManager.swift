@@ -18,7 +18,12 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     // Playback state
     @Published public var currentTrack: MediaTrack?
     @Published public var isPlaying: Bool = false
-    @Published public var currentTime: TimeInterval = 0
+    /// Position in the song. Not published here: see `PlaybackClock`
+    public let clock = PlaybackClock()
+    public var currentTime: TimeInterval {
+        get { clock.time }
+        set { clock.time = newValue }
+    }
     @Published public var duration: TimeInterval = 0
     @Published public var isShuffled: Bool = false
     @Published public var repeatMode: Int = 0 // 0: off, 1: all, 2: one
@@ -56,7 +61,6 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     public var activeVideoHost: String? { videoHosts.last }
     
     public func registerVideoHost(_ id: String) {
-        print("[pp] host + \(id) -> \(videoHosts + [id])")
         videoHosts.removeAll { $0 == id }
         videoHosts.append(id)
     }
@@ -79,7 +83,13 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         setupWebPlayer()
         setupLifecycleObservers()
         
-        // Initial track readiness
+        // Pick up where the app was closed
+        if let memory = PlaybackMemory.load() {
+            restore(memory)
+            return
+        }
+        
+        // Nothing remembered yet: the first song of Favorites
         if let first = PlaylistStore.shared.favoritesPlaylist?.tracks.first ?? PlaylistStore.shared.playlists.first(where: { !$0.tracks.isEmpty })?.tracks.first {
             self.currentTrack = first
             self.duration = first.duration
@@ -96,14 +106,73 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     // MARK: - Audio Session & Background Audio
     
-    private func setupAudioSession() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .moviePlayback)
-            try session.setActive(true)
-        } catch {
-            print("Failed to activate AVAudioSession: \(error)")
+    // MARK: - Remember what was playing
+    
+    private var lastMemorySave = Date.distantPast
+    
+    /// Saves the song, queue and position (the position at most every 5 s while playing)
+    private func rememberPlayback(force: Bool = true) {
+        guard let track = currentTrack else { return }
+        if !force && Date().timeIntervalSince(lastMemorySave) < 5 { return }
+        lastMemorySave = Date()
+        let store = PlaylistStore.shared
+        let inLibrary = Set(store.allUniqueTracks.map(\.id))
+        let allInLibrary = queue.allSatisfy { inLibrary.contains($0.id) }
+        PlaybackMemory(
+            track: track,
+            queueIds: allInLibrary ? queue.map(\.id) : nil,
+            queueTracks: allInLibrary ? nil : Array(queue.prefix(100)),
+            position: currentTime,
+            contextPlaylistId: contextPlaylistId,
+            shuffled: isShuffled,
+            repeatMode: repeatMode,
+            displayMode: displayMode.rawValue
+        ).save()
+    }
+    
+    private func restore(_ memory: PlaybackMemory) {
+        let store = PlaylistStore.shared
+        // The library's copy has any later edits (start/end time, changed video link)
+        var track = store.savedTrack(id: memory.track.id) ?? memory.track
+        // Songs saved by name only had their video found while playing: keep that one
+        if (track.youtubeId ?? "").isEmpty { track.youtubeId = memory.track.youtubeId }
+        var queue = memory.queueTracks ?? []
+        if let ids = memory.queueIds {
+            let byId = Dictionary(store.allUniqueTracks.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            queue = ids.compactMap { byId[$0] }
         }
+        if !queue.contains(where: { $0.id == track.id }) { queue = [track] }
+        
+        contextPlaylistId = memory.contextPlaylistId
+        isShuffled = memory.shuffled
+        repeatMode = memory.repeatMode
+        displayMode = PlaybackDisplayMode(rawValue: memory.displayMode) ?? .audio
+        currentTrack = track
+        self.queue = queue
+        originalQueue = queue
+        currentIndex = queue.firstIndex { $0.id == track.id } ?? 0
+        duration = track.duration
+        activeArtworkURL = track.effectiveThumbnailURL
+        Task {
+            if let cover = await TrackArtworkService.shared.cover(for: track), self.currentTrack?.id == track.id {
+                self.activeArtworkURL = cover.absoluteString
+            }
+        }
+        // Near the very end: start the song again instead
+        let end = track.endTime ?? track.duration
+        let position = (end > 0 && memory.position > end - 5) ? (track.startTime ?? 0) : max(memory.position, track.startTime ?? 0)
+        currentTime = position
+        loadLyrics(for: track)
+        if let vid = track.youtubeId, !vid.isEmpty {
+            loadVideo(id: vid, autoPlay: false, startAt: position)
+        }
+    }
+    
+    /// Repeat / display mode changed from a view
+    public func rememberSettings() { rememberPlayback() }
+    
+    private func setupAudioSession() {
+        BackgroundAudioKeepAlive.activateSession()   // off the main thread
     }
     
     private func setupLifecycleObservers() {
@@ -111,6 +180,19 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             self,
             selector: #selector(handleAppDidEnterBackground),
             name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { n in
+            AppLog.log("route change reason=\(n.userInfo?[AVAudioSessionRouteChangeReasonKey] ?? "?")")
+        }
+        NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
+            AppLog.log("media services reset")
+        }
+        // A call, alarm or Siri pauses the audio; pick it back up when iOS says it's over
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
             object: nil
         )
         NotificationCenter.default.addObserver(
@@ -122,7 +204,9 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     @objc private func handleAppDidEnterBackground() {
+        AppLog.log("app -> background playing=\(isPlaying) session=\(AVAudioSession.sharedInstance().category.rawValue) otherAudio=\(AVAudioSession.sharedInstance().isOtherAudioPlaying)")
         appInBackground = true
+        rememberPlayback()
         webView.evaluateJavaScript("window.appInBackground = true;", completionHandler: nil)
         if isPlaying {
             BackgroundAudioKeepAlive.shared.start()
@@ -131,7 +215,31 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         }
     }
     
+    private var wasPlayingBeforeInterruption = false
+    /// Counts the user's pauses, so a resume scheduled before one never undoes it
+    private var pauseEpoch = 0
+    
+    @objc private func handleAudioInterruption(_ note: Notification) {
+        AppLog.log("audio interruption \(note.userInfo ?? [:])")
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        if type == .began {
+            wasPlayingBeforeInterruption = isPlaying
+        } else if wasPlayingBeforeInterruption {
+            wasPlayingBeforeInterruption = false
+            let epoch = pauseEpoch
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                guard let self, self.pauseEpoch == epoch else { return }
+                self.isPlaying = true
+                if self.appInBackground { BackgroundAudioKeepAlive.shared.start() }
+                self.webView.evaluateJavaScript("playVideo();", completionHandler: nil)
+                self.updateNowPlayingInfo()
+            }
+        }
+    }
+    
     @objc private func handleAppWillEnterForeground() {
+        AppLog.log("app -> foreground playing=\(isPlaying)")
         appInBackground = false
         BackgroundAudioKeepAlive.shared.stop()
         webView.evaluateJavaScript("window.appInBackground = false;", completionHandler: nil)
@@ -152,6 +260,25 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         // YouTube's own full-screen button (does nothing unless element full screen is enabled)
         config.preferences.isElementFullscreenEnabled = true
         
+        // YouTube's player lives in a cross-origin iframe, which the page's own script can't reach:
+        // inside it, "page hidden" made YouTube pause itself right after the app went to the background.
+        // A user script runs in every frame, so it can make them all report "visible".
+        let visible = WKUserScript(source: """
+            (function() {
+              try {
+                Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+                Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+                Object.defineProperty(document, 'webkitHidden', { get: function() { return false; }, configurable: true });
+                Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+                var stop = function(e) { e.stopImmediatePropagation(); };
+                document.addEventListener('visibilitychange', stop, true);
+                document.addEventListener('webkitvisibilitychange', stop, true);
+                window.addEventListener('pagehide', stop, true);
+                window.addEventListener('blur', stop, true);
+              } catch (e) {}
+            })();
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        config.userContentController.addUserScript(visible)
         config.userContentController.add(self, name: "playerState")
         config.userContentController.add(self, name: "timeUpdate")
         config.userContentController.add(self, name: "playerError")
@@ -169,7 +296,12 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     /// `startAt` defaults to the current position (e.g. resuming the same song)
+    /// Where a song that was only cued (not playing yet) should begin: YouTube ignores its start
+    /// setting until the video has played, so the app seeks there itself.
+    private var pendingResume: Double?
+    
     public func loadVideo(id: String, autoPlay: Bool = true, startAt: Double? = nil) {
+        pendingResume = autoPlay ? nil : startAt.flatMap { $0 > 1 ? $0 : nil }
         self.currentLoadedVideoId = id
         self.isPlayerReady = false
         let startSec = Int(startAt ?? currentTime)
@@ -256,8 +388,8 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             }
 
             function onPlayerStateChange(event) {
+              try { window.webkit.messageHandlers.debugLog.postMessage("js state=" + event.data + " wants=" + window.userWantsPlaying + " bg=" + window.appInBackground + " resumes=" + autoResumes); } catch(e){}
               if (window.switching) return;
-              try { window.webkit.messageHandlers.debugLog.postMessage("yt state=" + event.data + " wants=" + window.userWantsPlaying + " bg=" + window.appInBackground + " hidden=" + document.hidden); } catch(e){}
               if ((event.data === 1 || event.data === 3) && !window.userWantsPlaying) {
                 // Started by iOS, not the user: keep it paused
                 try { player.pauseVideo(); } catch(e){}
@@ -274,7 +406,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                   // Paused by iOS, not the user: resume (but give up if iOS keeps pausing it)
                   var now = Date.now();
                   if (now - lastAutoResume > 8000) autoResumes = 0;
-                  if (autoResumes < 3) {
+                  if (autoResumes < 3 || window.appInBackground) {
                     autoResumes++;
                     lastAutoResume = now;
                     setTimeout(function() {
@@ -305,7 +437,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                   var dur = player.getDuration();
                   window.webkit.messageHandlers.timeUpdate.postMessage({ current: cur, duration: dur });
                 }
-              }, 250);
+              }, 100);
             }
 
             function stopTimeTracker() {
@@ -348,16 +480,22 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     private func handleScriptMessage(_ message: WKScriptMessage) {
-        if message.name == "debugLog" { print("[pp] js: \(message.body)"); return }
-        if message.name == "playerState" { print("[pp] state \(message.body) isPlaying=\(isPlaying) host=\(activeVideoHost ?? "-")") }
+        if message.name == "debugLog" { AppLog.log("\(message.body)"); return }
         if message.name == "playerReady" {
             self.isPlayerReady = true
+            if let p = pendingResume { webView.evaluateJavaScript("seekTo(\(p));", completionHandler: nil) }
             if self.isPlaying {
                 self.webView.evaluateJavaScript("playVideo();", completionHandler: nil)
             }
         } else if message.name == "playerState", let state = message.body as? Int {
+            AppLog.log("yt state=\(state) bg=\(appInBackground) wantedPlaying=\(isPlaying)")
             switch state {
             case 1: // Playing
+                if let p = pendingResume {
+                    // first play after a restore: make sure it's at the saved spot
+                    pendingResume = nil
+                    webView.evaluateJavaScript("if (player && player.getCurrentTime && player.getCurrentTime() < \(p) - 2) { player.seekTo(\(p), true); }", completionHandler: nil)
+                }
                 self.isPlaying = true
                 if self.appInBackground { BackgroundAudioKeepAlive.shared.start() }
             case 2: // Paused
@@ -372,8 +510,11 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         } else if message.name == "timeUpdate", let dict = message.body as? [String: Any],
                   let current = dict["current"] as? Double,
                   let dur = dict["duration"] as? Double {
+            // A restored song waiting to be played reports "0" from its start: that isn't where we are
+            if pendingResume != nil { return }
             self.currentTime = current
-            if dur > 0 { self.duration = dur }
+            if dur > 0 && dur != self.duration { self.duration = dur }
+            rememberPlayback(force: false)   // @Published fires on every assignment
             
             if current >= 10, !playCounted, let track = currentTrack {
                 playCounted = true
@@ -595,6 +736,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         
         // Load lyrics
         loadLyrics(for: track)
+        rememberPlayback()
         
         // Load and play video: the saved one, or the best official video (same ranking as the Mac app,
         // in the playlist's language, skipping videos marked 👎)
@@ -628,7 +770,6 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     public func resume() {
-        print("[pp] resume() from:\n" + Thread.callStackSymbols.prefix(5).joined(separator: "\n"))
         isPlaying = true
         if appInBackground { BackgroundAudioKeepAlive.shared.start() }
         if currentLoadedVideoId == nil, let track = currentTrack {
@@ -646,8 +787,11 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     public func pause() {
-        print("[pp] pause() from:\n" + Thread.callStackSymbols.prefix(5).joined(separator: "\n"))
+        pauseEpoch += 1
+        wasPlayingBeforeInterruption = false
+        AppLog.log("pause() called bg=\(appInBackground) from: \(Thread.callStackSymbols.dropFirst().prefix(3).joined(separator: " | "))")
         isPlaying = false
+        rememberPlayback()
         BackgroundAudioKeepAlive.shared.stop()
         webView.evaluateJavaScript("pauseVideo();", completionHandler: nil)
         updateNowPlayingInfo()
@@ -687,7 +831,11 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     }
     
     /// Song finished (or reached its end time): Repeat One restarts it, otherwise next.
+    /// While lyrics are being synced the song must not move on (the lyrics would end up on the next song)
+    public var holdForLyricsEditor = false
+    
     private func handleTrackEnded() {
+        if holdForLyricsEditor { pause(); return }
         if repeatMode == 2, let track = currentTrack {
             trimEndHandled = false
             seek(to: track.startTime ?? 0)
@@ -701,6 +849,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     public func toggleShuffle() {
         isShuffled.toggle()
+        defer { rememberPlayback() }
         guard let current = currentTrack else { return }
         if isShuffled {
             var shuffled = originalQueue.filter { $0.id != current.id }.shuffled()
@@ -717,9 +866,23 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     // MARK: - Lyrics Synchronization
     
+    /// Lyrics were edited: show the new ones now
+    public func reloadLyrics() {
+        guard let track = currentTrack else { return }
+        loadLyrics(for: track)
+        updateCurrentLyricIndex()
+    }
+    
     private func loadLyrics(for track: MediaTrack) {
         self.lyrics = nil
         self.currentLyricIndex = 0
+        // Lyrics you wrote come first
+        if let custom = CustomLyricsStore.shared.lyrics(for: track) {
+            self.lyrics = custom
+            self.isLyricsLoading = false
+            updateCurrentLyricIndex()
+            return
+        }
         self.isLyricsLoading = true
         
         Task {
@@ -728,6 +891,8 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 title: track.title,
                 duration: track.duration
             )
+            // Gone to another song, or you saved your own lyrics meanwhile: this result isn't wanted
+            guard self.currentTrack?.id == track.id, !CustomLyricsStore.shared.hasLyrics(for: track) else { return }
             self.lyrics = fetched
             self.isLyricsLoading = false
         }
@@ -735,9 +900,23 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     private func updateCurrentLyricIndex() {
         guard let lines = lyrics?.syncedLines, !lines.isEmpty else { return }
+        
+        // 0.32s vocal anticipation lead time: synchronizes visual highlighting
+        // right as the artist starts vocalizing, eliminating perceived latency.
+        let leadTime: Double = 0.32
+        let effectiveTime = currentTime + leadTime
+        
+        // If the track is still playing an intro before the first line
+        if effectiveTime < (lines.first?.time ?? 0) {
+            if currentLyricIndex != -1 {
+                currentLyricIndex = -1
+            }
+            return
+        }
+        
         var bestIndex = 0
         for (i, line) in lines.enumerated() {
-            if currentTime >= line.time {
+            if effectiveTime >= line.time {
                 bestIndex = i
             } else {
                 break
