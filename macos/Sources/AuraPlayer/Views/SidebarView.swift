@@ -30,6 +30,7 @@ public struct SidebarView: View {
     @State private var playlistToMerge: Playlist?
     
     // Song details refresh
+    @Environment(\.openWindow) private var openWindow
     @State private var isUpdatingDetails: Bool = false
     @State private var detailsResultMessage: String?
     
@@ -259,6 +260,29 @@ public struct SidebarView: View {
                 .buttonStyle(.plain)
                 .disabled(isUpdatingDetails)
                 .help("Fill in movie/album, composer and year from Apple Music so songs find the right video")
+            }
+            
+            Section("iPhone") {
+                Button {
+                    openWindow(id: "iphone-sync")
+                } label: {
+                    Label {
+                        HStack {
+                            Text("Sync with iPhone")
+                            Spacer()
+                            if let last = SyncServer.shared.lastSync {
+                                Text(last.formatted(.relative(presentation: .named)))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } icon: {
+                        Image(systemName: "iphone.and.arrow.forward")
+                            .foregroundStyle(.purple)
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Shows the pairing code for the iPhone app and when the last sync happened")
             }
         }
         .listStyle(.sidebar)

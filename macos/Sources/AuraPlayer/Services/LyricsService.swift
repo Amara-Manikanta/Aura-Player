@@ -31,6 +31,7 @@ public actor LyricsService {
     private init() {}
     
     public func fetchLyrics(artist: String, title: String, duration: TimeInterval = 0) async -> SongLyrics? {
+        if let custom = CustomLyricsFile.lyrics(title: title, artist: artist) { return custom }
         let cleanTitle = sanitize(title)
         let cleanArtist = sanitize(artist)
         let cacheKey = "\(cleanArtist)-\(cleanTitle)".lowercased()
@@ -162,3 +163,4 @@ public actor LyricsService {
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+

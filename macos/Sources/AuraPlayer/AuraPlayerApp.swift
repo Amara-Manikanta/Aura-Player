@@ -55,6 +55,10 @@ struct AuraPlayerApp: App {
                 OpenMiniPlayerCommand()
                 Toggle("Show Visualizer", isOn: $showVisualizer)
             }
+            
+            CommandMenu("Sync") {
+                OpenSyncWindowCommand()
+            }
         }
         
         // Small floating player that stays above other apps
@@ -65,6 +69,12 @@ struct AuraPlayerApp: App {
         .windowResizability(.contentMinSize)   // drag any edge to resize
         .defaultSize(width: 400, height: 330)
         .defaultPosition(.topTrailing)
+        
+        // Pairing code and status for syncing with the iPhone
+        Window("iPhone Sync", id: "iphone-sync") {
+            SyncWindowView()
+        }
+        .windowResizability(.contentSize)
         
         // Player in the macOS menu bar
         MenuBarExtra {

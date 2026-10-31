@@ -3,6 +3,7 @@ import SwiftUI
 public struct AudioPlayerView: View {
     @Bindable var playback: PlaybackManager
     @State private var showLyrics: Bool = false
+    @State private var showLyricsEditor: Bool = false
     @State private var waveAnimation: Bool = false
     @AppStorage("showVisualizer") private var showVisualizer = true
     
@@ -195,6 +196,17 @@ public struct AudioPlayerView: View {
                 
                 Spacer()
                 
+                if let lyrics = playback.lyrics, lyrics.isSynced || !(lyrics.plainLyrics ?? "").isEmpty {
+                    // Fix wrong lyrics or timing
+                    Button {
+                        showLyricsEditor = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit or re-sync these lyrics")
+                }
+                
                 if let lyrics = playback.lyrics, lyrics.isSynced {
                     Label("Time-Synced", systemImage: "clock.arrow.circlepath")
                         .font(.caption2.bold())
@@ -205,6 +217,9 @@ public struct AudioPlayerView: View {
                 }
             }
             .padding(.horizontal, 40)
+            .sheet(isPresented: $showLyricsEditor) {
+                if let track = playback.currentTrack { LyricsEditorSheet(track: track, playback: playback) }
+            }
             
             Divider().padding(.horizontal, 40)
             
@@ -222,33 +237,105 @@ public struct AudioPlayerView: View {
                     // Time-Synced Karaoke Lyrics
                     ScrollViewReader { proxy in
                         ScrollView {
+                            let activeIdx = activeLineIndex(at: playback.currentTime, in: lyrics.syncedLines)
+                            
                             LazyVStack(alignment: .leading, spacing: 18) {
-                                ForEach(lyrics.syncedLines) { line in
-                                    let isCurrent = isCurrentLine(line, in: lyrics.syncedLines)
+                                ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
+                                    let isCurrent = (index == activeIdx)
+                                    let isPast = (activeIdx != nil && index < activeIdx!)
                                     
                                     Button {
                                         playback.seek(to: line.time)
                                     } label: {
-                                        Text(line.text)
-                                            .font(.system(size: isCurrent ? 24 : 19, weight: isCurrent ? .bold : .medium, design: .rounded))
-                                            .foregroundStyle(isCurrent ? Color.white : Color.white.opacity(0.35))
-                                            .multilineTextAlignment(.leading)
-                                            .padding(.vertical, 4)
-                                            .padding(.horizontal, 10)
-                                            .background(
-                                                isCurrent ? RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.12)) : nil
-                                            )
+                                        HStack(alignment: .center, spacing: 12) {
+                                            if isCurrent && playback.isPlaying {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "music.note")
+                                                        .font(.system(size: 14, weight: .bold))
+                                                    Circle().frame(width: 5, height: 5)
+                                                }
+                                                .foregroundStyle(
+                                                    LinearGradient(
+                                                        colors: [.white, Color.purple],
+                                                        startPoint: .top,
+                                                        endPoint: .bottom
+                                                    )
+                                                )
+                                                .transition(.scale.combined(with: .opacity))
+                                            }
+                                            
+                                            Text(line.text)
+                                                .font(.system(size: isCurrent ? 25 : 19, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                                .foregroundStyle(isCurrent ? Color.white : (isPast ? Color.white.opacity(0.60) : Color.white.opacity(0.35)))
+                                                .multilineTextAlignment(.leading)
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 16)
+                                        .background {
+                                            if isCurrent {
+                                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                Color.white.opacity(0.18),
+                                                                Color.purple.opacity(0.15),
+                                                                Color.white.opacity(0.06)
+                                                            ],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
+                                                    )
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                            .stroke(
+                                                                LinearGradient(
+                                                                    colors: [
+                                                                        Color.white.opacity(0.55),
+                                                                        Color.purple.opacity(0.35),
+                                                                        Color.white.opacity(0.08)
+                                                                    ],
+                                                                    startPoint: .topLeading,
+                                                                    endPoint: .bottomTrailing
+                                                                ),
+                                                                lineWidth: 1.2
+                                                            )
+                                                    )
+                                                    .shadow(color: Color.purple.opacity(0.35), radius: 14, x: 0, y: 4)
+                                                    .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
+                                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                            }
+                                        }
+                                        .scaleEffect(isCurrent ? 1.02 : 0.97)
+                                        .blur(radius: isCurrent ? 0 : (isPast ? 0.2 : 0.45))
+                                        .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isCurrent)
                                     }
                                     .buttonStyle(.plain)
                                     .id(line.id)
                                 }
                             }
                             .padding(.horizontal, 40)
-                            .padding(.vertical, 20)
+                            .padding(.vertical, 24)
+                        }
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .black, location: 0.08),
+                                    .init(color: .black, location: 0.92),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .onAppear {
+                            if let active = activeLine(at: playback.currentTime, in: lyrics.syncedLines) {
+                                proxy.scrollTo(active.id, anchor: .center)
+                            }
                         }
                         .onChange(of: playback.currentTime) { _, newTime in
                             if let active = activeLine(at: newTime, in: lyrics.syncedLines) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
+                                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                                     proxy.scrollTo(active.id, anchor: .center)
                                 }
                             }
@@ -286,20 +373,39 @@ public struct AudioPlayerView: View {
             Text("Lyrics could not be found for this track or it may be instrumental.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Button {
+                showLyricsEditor = true
+            } label: {
+                Label("Add Lyrics", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .padding(.top, 4)
             Spacer()
         }
     }
     
     private func activeLine(at time: TimeInterval, in lines: [LyricLine]) -> LyricLine? {
-        var current: LyricLine? = nil
-        for line in lines {
-            if line.time <= time + 0.3 {
-                current = line
+        if let idx = activeLineIndex(at: time, in: lines) {
+            return lines[idx]
+        }
+        return nil
+    }
+    
+    private func activeLineIndex(at time: TimeInterval, in lines: [LyricLine]) -> Int? {
+        // Instrumental intro protection: don't highlight until first lyric approaches
+        if let first = lines.first, time + 0.32 < first.time {
+            return nil
+        }
+        var index: Int? = nil
+        for (i, line) in lines.enumerated() {
+            if line.time <= time + 0.32 {
+                index = i
             } else {
                 break
             }
         }
-        return current
+        return index
     }
     
     private func isCurrentLine(_ line: LyricLine, in lines: [LyricLine]) -> Bool {

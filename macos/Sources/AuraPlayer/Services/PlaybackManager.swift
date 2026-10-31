@@ -124,7 +124,7 @@ public final class PlaybackManager {
     }
     
     private func setupTimeObserver() {
-        let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
+        let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
@@ -133,7 +133,11 @@ public final class PlaybackManager {
                 if let currentItem = self.player.currentItem {
                     let itemDuration = currentItem.duration.seconds
                     if !itemDuration.isNaN && itemDuration > 0 {
-                        self.duration = itemDuration
+                        // Some YouTube m4a files are read by AVFoundation as double their real length;
+                        // when the known length is about half, trust the known length
+                        let known = self.currentTrack?.duration ?? 0
+                        let ratio = known > 0 ? itemDuration / known : 1
+                        self.duration = (ratio > 1.8 && ratio < 2.2) ? known : itemDuration
                     }
                 }
                 
@@ -170,6 +174,13 @@ public final class PlaybackManager {
     }
     
     /// Applies new start/end times to the song that's playing now.
+    public func applyRename(to trackId: UUID, title: String, artist: String) {
+        guard currentTrack?.id == trackId else { return }
+        currentTrack?.title = title
+        currentTrack?.artist = artist
+        updateNowPlayingInfo()
+    }
+    
     public func applyTrim(to trackId: UUID, start: Double?, end: Double?) {
         guard currentTrack?.id == trackId else { return }
         currentTrack?.startTime = (start ?? 0) > 0 ? start : nil
@@ -178,7 +189,11 @@ public final class PlaybackManager {
         if let start, start > 0, currentTime < start { seek(to: start) }
     }
     
+    /// While lyrics are being synced the song must not move on (the lyrics would end up on the next song)
+    public var holdForLyricsEditor = false
+    
     private func handleTrackEnded() {
+        if holdForLyricsEditor { player.pause(); isPlaying = false; return }
         if !playCountRecordedForCurrentTrack, let current = currentTrack {
             playCountRecordedForCurrentTrack = true
             playlistStore?.recordPlay(for: current)
@@ -669,6 +684,16 @@ public final class PlaybackManager {
             }
         }
         updateNowPlayingInfo()
+    }
+    
+    /// Lyrics were edited: look them up again for the playing song (yours come first)
+    public func reloadLyrics() {
+        guard let track = currentTrack else { return }
+        Task { [weak self] in
+            let fetched = await LyricsService.shared.fetchLyrics(artist: track.artist, title: track.title, duration: track.duration)
+            guard self?.currentTrack?.id == track.id else { return }
+            self?.lyrics = fetched
+        }
     }
     
     public func seek(to seconds: TimeInterval) {

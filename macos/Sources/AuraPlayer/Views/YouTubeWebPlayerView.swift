@@ -58,7 +58,12 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
     }
     
     private func loadVideo(_ id: String, in webView: WKWebView) {
-        let startSec = Int(playback.currentTime)
+        // Never start at or past the song's end: YouTube would end the video at once and move on to a
+        // different one, whose length and position then showed up as this song's. Start from the beginning instead.
+        var position = playback.currentTime
+        let length = playback.duration
+        if length > 0, position >= length - 2 { position = playback.currentTrack?.startTime ?? 0 }
+        let startSec = Int(max(0, position))
         playback.webVideoLoadStartedAt = Date()
         AppLog.log("webplayer", "loading video \(id) at \(startSec)s for \"\(playback.currentTrack?.title ?? "-")\"")
         let html = """
@@ -85,6 +90,20 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
             var player;
             var isReady = false;
             var timeInterval = null;
+            var expectedVideoId = '\(id)';
+
+            // True while the player is on a different video than the one asked for (YouTube can move on to
+            // a "next" video by itself): its time and length aren't this song's, so they're not reported
+            function onWrongVideo() {
+              try {
+                var current = player.getVideoData && player.getVideoData().video_id;
+                if (current && current !== expectedVideoId) {
+                  player.stopVideo();
+                  return true;
+                }
+              } catch (e) {}
+              return false;
+            }
 
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('ytplayer', {
@@ -159,13 +178,14 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
               if (timeInterval) clearInterval(timeInterval);
               timeInterval = setInterval(function() {
                 if (player && player.getCurrentTime && player.getDuration) {
+                  if (onWrongVideo()) return;
                   var cur = player.getCurrentTime();
                   var dur = player.getDuration();
                   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.timeUpdate) {
                     window.webkit.messageHandlers.timeUpdate.postMessage({ currentTime: cur, duration: dur });
                   }
                 }
-              }, 250);
+              }, 100);
             }
 
             function stopTimeTracker() {

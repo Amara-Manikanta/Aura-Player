@@ -127,6 +127,10 @@ public struct MainView: View {
             )
         }
         .task {
+            // Let the iPhone app sync with this library over Wi-Fi
+            SyncServer.shared.start(store: store)
+        }
+        .task {
             await store.autoSyncAppleMusic()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

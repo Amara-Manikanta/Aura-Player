@@ -10,7 +10,11 @@ public struct CurrentSongMenu: View {
     
     @State private var showTrimSheet = false
     @State private var showVideoSheet = false
+    @State private var showLyricsSheet = false
     @State private var notice: String?
+    @State private var showRename = false
+    @State private var newTitle = ""
+    @State private var newArtist = ""
     
     public init(playback: PlaybackManager, iconColor: Color = .secondary, iconSize: CGFloat = 14) {
         self.playback = playback
@@ -19,11 +23,28 @@ public struct CurrentSongMenu: View {
     }
     
     private var track: MediaTrack? { playback.currentTrack }
+    
+    /// "Song Title – Artist" (just the title when the artist is unknown)
+    static func nameToCopy(_ track: MediaTrack) -> String {
+        let artist = track.artist.trimmingCharacters(in: .whitespaces)
+        return artist.isEmpty || artist == "Unknown Artist" ? track.title : "\(track.title) – \(artist)"
+    }
     private var store: PlaylistStore? { playback.playlistStore }
     
     public var body: some View {
         Menu {
             if let track {
+                Button("Copy Song Name") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(Self.nameToCopy(track), forType: .string)
+                }
+                Button("Rename Song…") {
+                    newTitle = track.title
+                    newArtist = track.artist
+                    showRename = true
+                }
+                Button("Add / Sync Lyrics…") { showLyricsSheet = true }
+                Divider()
                 trimSection(track)
                 Divider()
                 if track.sourceType == .youtube { videoSection(track) ; Divider() }
@@ -44,8 +65,17 @@ public struct CurrentSongMenu: View {
         .sheet(isPresented: $showTrimSheet) {
             if let track, let store { TrimTimesSheet(track: track, store: store, playback: playback) }
         }
+        .sheet(isPresented: $showLyricsSheet) {
+            if let track { LyricsEditorSheet(track: track, playback: playback) }
+        }
         .sheet(isPresented: $showVideoSheet) {
             if let track, let store { ChangeVideoLinkSheet(track: track, store: store, playback: playback) }
+        }
+        .alert("Rename Song", isPresented: $showRename) {
+            TextField("Song name", text: $newTitle)
+            TextField("Artist", text: $newArtist)
+            Button("Save") { rename() }
+            Button("Cancel", role: .cancel) {}
         }
         .alert("Song Options", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
             Button("OK", role: .cancel) {}
@@ -129,6 +159,15 @@ public struct CurrentSongMenu: View {
         store?.setTrimTimes(for: track, start: start, end: end)
         playback.applyTrim(to: track.id, start: start, end: end)
         AppLog.log("trim", "\"\(track.title)\" start=\(start.map { "\(Int($0))s" } ?? "-") end=\(end.map { "\(Int($0))s" } ?? "-") (from player)")
+    }
+    
+    private func rename() {
+        guard let track else { return }
+        let title = newTitle.trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty else { return }
+        let artist = newArtist.trimmingCharacters(in: .whitespaces)
+        store?.renameSong(track, title: title, artist: artist.isEmpty ? "Unknown Artist" : artist)
+        playback.applyRename(to: track.id, title: title, artist: artist.isEmpty ? "Unknown Artist" : artist)
     }
     
     private func add(_ track: MediaTrack, to playlist: Playlist, store: PlaylistStore) {

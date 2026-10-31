@@ -72,6 +72,14 @@ public final class PlaylistStore {
         }
     }
     
+    /// The library after a sync with the iPhone: use it as is
+    public func adoptSyncedLibrary(_ synced: [Playlist]) {
+        playlists = synced.map { var p = $0; p.tracks = Self.uniquingTrackIds(p.tracks); return p }
+        if let fav = playlists.first(where: { $0.name == "Favorites" }) { favoritesPlaylistId = fav.id }
+        if let local = playlists.first(where: { $0.name == "Local Library" }) { localLibraryPlaylistId = local.id }
+        save()
+    }
+    
     public func save() {
         if let data = try? JSONEncoder().encode(playlists) {
             try? data.write(to: fileURL, options: .atomic)
@@ -343,6 +351,20 @@ public final class PlaylistStore {
                 if t.id == track.id || (!t.originalURL.isEmpty && t.originalURL == track.originalURL) {
                     playlists[i].tracks[j].startTime = s
                     playlists[i].tracks[j].endTime = end
+                }
+            }
+        }
+        save()
+    }
+    
+    /// Renames a song on every copy of it (same id or same link)
+    public func renameSong(_ track: MediaTrack, title: String, artist: String) {
+        for i in playlists.indices {
+            for j in playlists[i].tracks.indices {
+                let t = playlists[i].tracks[j]
+                if t.id == track.id || (!t.originalURL.isEmpty && t.originalURL == track.originalURL) {
+                    playlists[i].tracks[j].title = title
+                    playlists[i].tracks[j].artist = artist
                 }
             }
         }
