@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aura Player for Android — Official APK Download</title>
-  <meta name="description" content="Download Aura Player for Android: Free open-source music player with official YouTube playback, real-time karaoke lyrics, background audio, and universal playlist import from Spotify, YouTube, JioSaavn, and more.">
-  <meta property="og:title" content="Aura Player for Android — Official APK Download">
-  <meta property="og:description" content="Free open-source music player with YouTube streaming, live karaoke lyrics, background audio, and playlist import from Spotify, YouTube, JioSaavn, and Amazon Music.">
+  <title>Aura Player — The Free, Ad-Free & Private Music Player for Android</title>
+  <meta name="description" content="Download Aura Player APK: Unlimited music with zero ads, no monthly subscriptions, complete privacy, real-time karaoke lyrics, and 1-tap playlist import from Spotify and YouTube.">
+  <meta property="og:title" content="Aura Player — Zero Ads. No Subscriptions. 100% Private.">
+  <meta property="og:description" content="Stream millions of songs with official YouTube playback, background audio, live karaoke lyrics, and zero commercial interruptions. Free forever.">
   <meta property="og:image" content="screenshots/01_full_player.png">
   <meta property="og:url" content="https://amara-manikanta.github.io/Aura-Player/">
   <meta name="theme-color" content="#5B4BD8">
@@ -18,17 +18,19 @@
   <style>
     :root {
       --bg-dark: #0A0A12;
+      --bg-darker: #06060A;
       --bg-card: rgba(255, 255, 255, 0.04);
       --bg-card-hover: rgba(255, 255, 255, 0.08);
       --glass-border: rgba(255, 255, 255, 0.1);
-      --glass-border-glow: rgba(185, 168, 255, 0.35);
+      --glass-border-glow: rgba(185, 168, 255, 0.4);
       --accent-purple: #B9A8FF;
       --accent-indigo: #7B6BE0;
       --accent-teal: #34D399;
-      --accent-coral: #ED5564;
+      --accent-coral: #FF5A70;
       --accent-cyan: #00F0FF;
+      --accent-gold: #FFD166;
       --text-primary: #FFFFFF;
-      --text-secondary: rgba(255, 255, 255, 0.72);
+      --text-secondary: rgba(255, 255, 255, 0.74);
       --text-muted: rgba(255, 255, 255, 0.45);
       --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
@@ -48,9 +50,9 @@
       overflow-x: hidden;
       min-height: 100vh;
       background-image: 
-        radial-gradient(circle at 15% 15%, rgba(123, 107, 224, 0.22) 0%, transparent 45%),
-        radial-gradient(circle at 85% 30%, rgba(52, 211, 153, 0.12) 0%, transparent 40%),
-        radial-gradient(circle at 50% 80%, rgba(185, 168, 255, 0.15) 0%, transparent 50%);
+        radial-gradient(circle at 10% 12%, rgba(123, 107, 224, 0.28) 0%, transparent 45%),
+        radial-gradient(circle at 90% 25%, rgba(52, 211, 153, 0.16) 0%, transparent 40%),
+        radial-gradient(circle at 50% 75%, rgba(185, 168, 255, 0.18) 0%, transparent 55%);
       background-attachment: fixed;
     }
 
@@ -66,7 +68,7 @@
       z-index: 100;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      background: rgba(10, 10, 18, 0.75);
+      background: rgba(10, 10, 18, 0.8);
       border-bottom: 1px solid var(--glass-border);
       padding: 16px 24px;
     }
@@ -89,22 +91,22 @@
     }
 
     .brand-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
       background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 16px rgba(123, 107, 224, 0.4);
+      box-shadow: 0 4px 20px rgba(123, 107, 224, 0.45);
     }
 
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 28px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text-secondary);
     }
 
@@ -113,25 +115,25 @@
     }
 
     .nav-cta {
-      background: var(--text-primary);
-      color: #0A0A12;
-      padding: 9px 18px;
+      background: linear-gradient(135deg, #7B6BE0, #9D8CFF);
+      color: #FFFFFF;
+      padding: 10px 20px;
       border-radius: 999px;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 13.5px;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 16px rgba(123, 107, 224, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .nav-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(123, 107, 224, 0.55);
     }
 
-    /* Container */
     .container {
       max-width: 1200px;
       margin: 0 auto;
@@ -140,50 +142,125 @@
 
     /* Hero Section */
     .hero {
-      padding: 80px 0 60px;
+      padding: 85px 0 60px;
       text-align: center;
       position: relative;
+    }
+
+    .top-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
     }
 
     .pill-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 999px;
       background: rgba(185, 168, 255, 0.12);
       border: 1px solid rgba(185, 168, 255, 0.3);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--accent-purple);
-      margin-bottom: 24px;
+    }
+
+    .pill-badge.green {
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.35);
+      color: var(--accent-teal);
     }
 
     .pill-badge .dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--accent-teal);
-      box-shadow: 0 0 8px var(--accent-teal);
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
     }
 
     .hero h1 {
-      font-size: clamp(38px, 6vw, 68px);
+      font-size: clamp(38px, 6vw, 70px);
       font-weight: 800;
-      letter-spacing: -1.5px;
+      letter-spacing: -2px;
       line-height: 1.1;
       margin-bottom: 24px;
-      background: linear-gradient(180deg, #FFFFFF 30%, rgba(255, 255, 255, 0.65) 100%);
+      background: linear-gradient(180deg, #FFFFFF 30%, rgba(255, 255, 255, 0.7) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .hero p {
-      font-size: clamp(16px, 2vw, 20px);
+    .hero-lead {
+      font-size: clamp(17px, 2.2vw, 21px);
       color: var(--text-secondary);
-      max-width: 740px;
+      max-width: 820px;
       margin: 0 auto 36px;
       font-weight: 400;
+      line-height: 1.6;
+    }
+
+    .highlight-text {
+      color: #FFFFFF;
+      font-weight: 700;
+      text-decoration: underline;
+      text-decoration-color: var(--accent-purple);
+      text-underline-offset: 4px;
+    }
+
+    /* Core 3 Pillars Banner */
+    .pillars-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      max-width: 960px;
+      margin: 0 auto 40px;
+    }
+
+    .pillar-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 18px 20px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      transition: all 0.25s ease;
+    }
+
+    .pillar-card:hover {
+      border-color: var(--glass-border-glow);
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .pillar-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .pillar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .pillar-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.35;
     }
 
     .hero-actions {
@@ -198,34 +275,34 @@
     .btn-download-primary {
       background: linear-gradient(135deg, #7B6BE0, #9D8CFF);
       color: #FFFFFF;
-      padding: 16px 36px;
-      border-radius: 16px;
-      font-size: 17px;
+      padding: 18px 40px;
+      border-radius: 18px;
+      font-size: 18px;
       font-weight: 700;
       display: inline-flex;
       align-items: center;
-      gap: 12px;
-      box-shadow: 0 10px 30px rgba(123, 107, 224, 0.45);
+      gap: 14px;
+      box-shadow: 0 12px 36px rgba(123, 107, 224, 0.5);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.25);
     }
 
     .btn-download-primary:hover {
       transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 16px 40px rgba(123, 107, 224, 0.6);
-      background: linear-gradient(135deg, #8A7AE6, #AA9BFF);
+      box-shadow: 0 18px 46px rgba(123, 107, 224, 0.65);
+      background: linear-gradient(135deg, #8979ED, #B1A2FF);
     }
 
     .btn-download-primary svg {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       fill: currentColor;
     }
 
     .btn-download-sub {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
-      opacity: 0.85;
+      opacity: 0.88;
       display: block;
       margin-top: 2px;
     }
@@ -234,9 +311,9 @@
       background: var(--bg-card);
       border: 1px solid var(--glass-border);
       color: var(--text-primary);
-      padding: 16px 28px;
-      border-radius: 16px;
-      font-size: 15px;
+      padding: 18px 30px;
+      border-radius: 18px;
+      font-size: 16px;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
@@ -251,93 +328,195 @@
       transform: translateY(-2px);
     }
 
-    .badge-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .badge-bar span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .badge-bar svg {
-      width: 15px;
-      height: 15px;
-      fill: var(--accent-teal);
-    }
-
     /* Mobile QR Card */
     .qr-hero-card {
-      max-width: 420px;
+      max-width: 440px;
       margin: 40px auto 0;
       background: var(--bg-card);
       border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 20px;
+      border-radius: 22px;
+      padding: 20px 24px;
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 20px;
       backdrop-filter: blur(20px);
       text-align: left;
     }
 
     .qr-hero-card img {
-      width: 90px;
-      height: 90px;
-      border-radius: 10px;
+      width: 95px;
+      height: 95px;
+      border-radius: 12px;
       background: #FFFFFF;
-      padding: 4px;
+      padding: 5px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
     }
 
     .qr-hero-card h4 {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 700;
       margin-bottom: 4px;
     }
 
     .qr-hero-card p {
-      font-size: 12px;
+      font-size: 12.5px;
       color: var(--text-secondary);
       margin: 0;
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
-    /* Screenshots Showcase */
-    .screenshots-section {
-      padding: 60px 0 80px;
+    /* Section Styling */
+    section {
+      padding: 70px 0;
     }
 
     .section-title {
       text-align: center;
-      margin-bottom: 48px;
+      margin-bottom: 50px;
+    }
+
+    .section-title .section-tag {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent-purple);
+      margin-bottom: 10px;
+      display: block;
     }
 
     .section-title h2 {
-      font-size: clamp(28px, 4vw, 42px);
+      font-size: clamp(30px, 4.5vw, 46px);
       font-weight: 800;
       letter-spacing: -1px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .section-title p {
       color: var(--text-secondary);
-      font-size: 16px;
-      max-width: 600px;
+      font-size: 17px;
+      max-width: 680px;
       margin: 0 auto;
     }
 
+    /* Why Us / Comparison Matrix */
+    .comparison-section {
+      background: rgba(0, 0, 0, 0.25);
+      border-top: 1px solid var(--glass-border);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .reasons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 50px;
+    }
+
+    .reason-box {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 22px;
+      padding: 34px;
+      position: relative;
+      transition: all 0.25s ease;
+    }
+
+    .reason-box:hover {
+      border-color: var(--glass-border-glow);
+      transform: translateY(-4px);
+      background: var(--bg-card-hover);
+    }
+
+    .reason-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+
+    .reason-box h3 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .reason-box p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Table */
+    .table-wrapper {
+      overflow-x: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 8px;
+      backdrop-filter: blur(16px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14.5px;
+    }
+
+    th, td {
+      padding: 18px 22px;
+    }
+
+    th {
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--glass-border);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    th.aura-col, td.aura-col {
+      background: rgba(123, 107, 224, 0.12);
+      border-left: 1px solid rgba(185, 168, 255, 0.3);
+      border-right: 1px solid rgba(185, 168, 255, 0.3);
+    }
+
+    th.aura-col {
+      color: var(--accent-purple);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    tr:not(:last-child) td {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .check {
+      color: var(--accent-teal);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cross {
+      color: var(--accent-coral);
+      font-weight: 600;
+      opacity: 0.9;
+    }
+
+    /* Screenshots */
     .screenshots-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 20px;
-      align-items: start;
     }
 
     .screenshot-card {
@@ -346,13 +525,12 @@
       border-radius: 20px;
       overflow: hidden;
       transition: all 0.3s ease;
-      position: relative;
     }
 
     .screenshot-card:hover {
       transform: translateY(-6px);
       border-color: var(--glass-border-glow);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
     }
 
     .screenshot-card img {
@@ -371,10 +549,6 @@
     }
 
     /* Features Grid */
-    .features-section {
-      padding: 60px 0 80px;
-    }
-
     .features-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -384,11 +558,9 @@
     .feature-card {
       background: var(--bg-card);
       border: 1px solid var(--glass-border);
-      border-radius: 20px;
+      border-radius: 22px;
       padding: 32px;
       transition: all 0.25s ease;
-      position: relative;
-      overflow: hidden;
     }
 
     .feature-card:hover {
@@ -414,7 +586,6 @@
       font-size: 19px;
       font-weight: 700;
       margin-bottom: 10px;
-      color: var(--text-primary);
     }
 
     .feature-card p {
@@ -423,7 +594,6 @@
       line-height: 1.6;
     }
 
-    /* Platforms Strip */
     .platform-pills {
       display: flex;
       flex-wrap: wrap;
@@ -441,13 +611,9 @@
       color: var(--text-secondary);
     }
 
-    /* Installation Steps */
-    .install-section {
-      padding: 60px 0 80px;
-    }
-
+    /* Installation */
     .install-card {
-      background: linear-gradient(135deg, rgba(123, 107, 224, 0.1), rgba(10, 10, 18, 0.6));
+      background: linear-gradient(135deg, rgba(123, 107, 224, 0.12), rgba(10, 10, 18, 0.7));
       border: 1px solid var(--glass-border);
       border-radius: 28px;
       padding: 48px 36px;
@@ -457,18 +623,14 @@
 
     .steps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 28px;
       margin-top: 36px;
     }
 
-    .step-item {
-      position: relative;
-    }
-
     .step-number {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       border-radius: 12px;
       background: var(--accent-indigo);
       color: #FFFFFF;
@@ -477,7 +639,7 @@
       align-items: center;
       justify-content: center;
       margin-bottom: 16px;
-      font-size: 16px;
+      font-size: 17px;
     }
 
     .step-item h4 {
@@ -493,30 +655,35 @@
     }
 
     /* FAQ */
-    .faq-section {
-      padding: 60px 0 80px;
-      max-width: 800px;
+    .faq-grid {
+      max-width: 820px;
       margin: 0 auto;
     }
 
     .faq-item {
       background: var(--bg-card);
       border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 22px 24px;
+      border-radius: 18px;
+      padding: 24px 26px;
       margin-bottom: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .faq-item:hover {
+      border-color: var(--glass-border-glow);
     }
 
     .faq-item h4 {
-      font-size: 16px;
+      font-size: 16.5px;
       font-weight: 700;
       margin-bottom: 8px;
       color: var(--accent-purple);
     }
 
     .faq-item p {
-      font-size: 14px;
+      font-size: 14.5px;
       color: var(--text-secondary);
+      line-height: 1.6;
     }
 
     /* Footer */
@@ -525,7 +692,7 @@
       padding: 48px 0;
       text-align: center;
       color: var(--text-muted);
-      font-size: 13px;
+      font-size: 13.5px;
     }
 
     footer a {
@@ -539,13 +706,17 @@
 
     @media (max-width: 768px) {
       .hero {
-        padding: 50px 0 40px;
+        padding: 55px 0 40px;
       }
       .nav-links {
         display: none;
       }
       .install-card {
         padding: 32px 20px;
+      }
+      th, td {
+        padding: 12px 14px;
+        font-size: 13px;
       }
     }
   </style>
@@ -566,6 +737,7 @@
         <span>Aura Player</span>
       </div>
       <div class="nav-links">
+        <a href="#why-aura">Why Aura Player?</a>
         <a href="#features">Features</a>
         <a href="#screenshots">Screenshots</a>
         <a href="#install">How to Install</a>
@@ -584,17 +756,56 @@
   <!-- Hero Section -->
   <header class="hero">
     <div class="container">
-      <div class="pill-badge">
-        <span class="dot"></span>
-        <span>Aura Player for Android • Version 1.0.0</span>
+      <div class="top-badge-row">
+        <div class="pill-badge green">
+          <span class="dot"></span>
+          <span>100% Free Forever • No Ads</span>
+        </div>
+        <div class="pill-badge">
+          <span>🛡️ Complete Privacy • Zero Data Collection</span>
+        </div>
       </div>
 
-      <h1>Music Streaming, Redefined in Liquid Glass</h1>
+      <h1>Music Streaming Without The Paywalls, Ads & Tracking</h1>
 
-      <p>
-        Stream millions of songs with official HD YouTube playback, real-time synchronized karaoke lyrics, background audio keep-alive, and instant 1-tap playlist import from Spotify, YouTube, JioSaavn, Gaana, and Amazon Music.
+      <p class="hero-lead">
+        Stop paying <span class="highlight-text">$130+ every year</span> for music apps that lock basic features behind subscriptions and track your every move. Aura Player gives you millions of songs, official YouTube video streams, live karaoke lyrics, and background audio — <span class="highlight-text">completely free, ad-free, and private</span>.
       </p>
 
+      <!-- 3 Core Reasons Strip -->
+      <div class="pillars-strip">
+        <div class="pillar-card">
+          <div class="pillar-icon-box" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-teal);">
+            💰
+          </div>
+          <div>
+            <div class="pillar-title">No Subscriptions ($0)</div>
+            <div class="pillar-desc">No $10.99/mo fees, no free trials that expire, no credit card required.</div>
+          </div>
+        </div>
+
+        <div class="pillar-card">
+          <div class="pillar-icon-box" style="background: rgba(255, 90, 112, 0.15); color: var(--accent-coral);">
+            🚫
+          </div>
+          <div>
+            <div class="pillar-title">Zero Commercials & Ads</div>
+            <div class="pillar-desc">No unskippable 30-sec interruptions or sponsored banner clutter.</div>
+          </div>
+        </div>
+
+        <div class="pillar-card">
+          <div class="pillar-icon-box" style="background: rgba(185, 168, 255, 0.15); color: var(--accent-purple);">
+            🔒
+          </div>
+          <div>
+            <div class="pillar-title">100% Private & Open Source</div>
+            <div class="pillar-desc">No login or account. Zero telemetry or listening data tracked or sold.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
       <div class="hero-actions">
         <a href="AuraPlayer.apk" download="AuraPlayer.apk" class="btn-download-primary">
           <svg viewBox="0 0 24 24">
@@ -610,42 +821,142 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
           </svg>
-          View on GitHub
+          View Source Code on GitHub
         </a>
-      </div>
-
-      <div class="badge-bar">
-        <span>
-          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          Android 8.0 to Android 15
-        </span>
-        <span>
-          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          100% Free & Open Source
-        </span>
-        <span>
-          <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          Zero Ads • No Account Needed
-        </span>
       </div>
 
       <!-- Quick QR Scan for Mobile Download -->
       <div class="qr-hero-card">
         <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk" alt="Scan to Download APK">
         <div>
-          <h4>Scan with your Phone</h4>
-          <p>Browsing on a PC or Mac? Point your Android camera at the QR code to download directly to your mobile phone.</p>
+          <h4>Scan with your Android Phone</h4>
+          <p>Browsing on your laptop? Point your phone camera at this QR code to download the APK directly to your device.</p>
         </div>
       </div>
     </div>
   </header>
 
+  <!-- Deep Dive: Why Aura Player? Section -->
+  <section class="comparison-section" id="why-aura">
+    <div class="container">
+      <div class="section-title">
+        <span class="section-tag">Why Switch to Aura Player</span>
+        <h2>Tired of Being Milked by Streaming Subscriptions?</h2>
+        <p>Traditional streaming apps charge you monthly fees, harvest your personal data, and lock your screen when you want background audio. Aura Player changes that.</p>
+      </div>
+
+      <div class="reasons-grid">
+        <div class="reason-box">
+          <span class="reason-badge" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-teal);">Save $130 - $200 / Year</span>
+          <h3>Zero Monthly Subscriptions</h3>
+          <p>
+            Spotify Premium and YouTube Music Premium cost $10.99 to $16.99 every month. With Aura Player, you get unlimited listening, high-definition streaming, and full player controls for $0. Forever. No hidden tiers, no trial expiration.
+          </p>
+        </div>
+
+        <div class="reason-box">
+          <span class="reason-badge" style="background: rgba(255, 90, 112, 0.15); color: var(--accent-coral);">Pure Music Experience</span>
+          <h3>100% Ad-Free Listening</h3>
+          <p>
+            No 30-second unskippable commercial breaks in the middle of your favorite playlist. No loud corporate ads interrupting calm acoustic tracks. Aura Player streams uninterrupted music directly from official sources.
+          </p>
+        </div>
+
+        <div class="reason-box">
+          <span class="reason-badge" style="background: rgba(185, 168, 255, 0.15); color: var(--accent-purple);">Your Data Stays Yours</span>
+          <h3>Total Privacy & No Account Required</h3>
+          <p>
+            You don't need to log in with an email, phone number, or social account. We don't track what you listen to, and we never sell your behavioral habits to advertisers. Your playlists and favorites stay on your phone.
+          </p>
+        </div>
+      </div>
+
+      <!-- Comparison Matrix Table -->
+      <div class="section-title" style="margin-bottom: 28px;">
+        <h3>See How Aura Player Compares</h3>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="aura-col">✨ Aura Player</th>
+              <th>Spotify (Free)</th>
+              <th>YouTube Music (Free)</th>
+              <th>Paid Subscriptions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Monthly Cost</b></td>
+              <td class="aura-col"><span class="check"><b>$0.00 (Free Forever)</b></span></td>
+              <td>$0 (Heavy Ads)</td>
+              <td>$0 (Heavy Ads)</td>
+              <td>$10.99 – $16.99 / mo</td>
+            </tr>
+            <tr>
+              <td><b>Audio & Video Commercials</b></td>
+              <td class="aura-col"><span class="check">🚫 Zero Ads</span></td>
+              <td><span class="cross">Frequent 30s Ads</span></td>
+              <td><span class="cross">Frequent Video Ads</span></td>
+              <td><span class="check">Ad-Free</span></td>
+            </tr>
+            <tr>
+              <td><b>Background Playback (Screen Locked)</b></td>
+              <td class="aura-col"><span class="check">✅ Built-in & Free</span></td>
+              <td><span class="check">Yes</span></td>
+              <td><span class="cross">❌ Blocked (Screen must stay on)</span></td>
+              <td><span class="check">Yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Switch Between Audio & HD Video</b></td>
+              <td class="aura-col"><span class="check">✅ Instant 1-Tap</span></td>
+              <td><span class="cross">❌ No Video</span></td>
+              <td><span class="cross">❌ Paid Only</span></td>
+              <td><span class="check">Yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Account / Login Required</b></td>
+              <td class="aura-col"><span class="check">🛡️ No Account Needed</span></td>
+              <td><span class="cross">Required</span></td>
+              <td><span class="cross">Google Account Required</span></td>
+              <td><span class="cross">Required + Credit Card</span></td>
+            </tr>
+            <tr>
+              <td><b>Synchronized Karaoke Lyrics</b></td>
+              <td class="aura-col"><span class="check">✅ Millisecond Pacing + Live Fallback</span></td>
+              <td>Limited / Restricted</td>
+              <td>Basic Static Text</td>
+              <td>Basic / Partial</td>
+            </tr>
+            <tr>
+              <td><b>Import Playlists from Other Apps</b></td>
+              <td class="aura-col"><span class="check">✅ YouTube, Spotify, JioSaavn, Gaana, Amazon</span></td>
+              <td><span class="cross">❌ Walled Garden</span></td>
+              <td><span class="cross">❌ Walled Garden</span></td>
+              <td><span class="cross">❌ Locked in Ecosystem</span></td>
+            </tr>
+            <tr>
+              <td><b>User Privacy & Telemetry</b></td>
+              <td class="aura-col"><span class="check">🔒 100% Private (No Trackers)</span></td>
+              <td><span class="cross">Extensive ad profiling</span></td>
+              <td><span class="cross">Google tracking ecosystem</span></td>
+              <td><span class="cross">Targeted advertising profiles</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Screenshots Gallery -->
   <section class="screenshots-section" id="screenshots">
     <div class="container">
       <div class="section-title">
-        <h2>Built with Modern Android & Jetpack Compose</h2>
-        <p>A fluid, responsive interface crafted with liquid glass aesthetics and hardware-accelerated playback.</p>
+        <span class="section-tag">Visual Walkthrough</span>
+        <h2>A Gorgeous Dark Glass Experience</h2>
+        <p>Designed with liquid glass visuals, illuminated controls, and buttery-smooth 60+ FPS Jetpack Compose animations.</p>
       </div>
 
       <div class="screenshots-grid">
@@ -677,8 +988,9 @@
   <section class="features-section" id="features">
     <div class="container">
       <div class="section-title">
-        <h2>Everything You Need in a Music Player</h2>
-        <p>Powered by NewPipeExtractor, Media3 ExoPlayer, and real-time lyrics syncing.</p>
+        <span class="section-tag">Powerful Capabilities</span>
+        <h2>Everything You Need in a Music App</h2>
+        <p>Powered by NewPipeExtractor, Media3 ExoPlayer, and real-time multi-tier lyrics resolution.</p>
       </div>
 
       <div class="features-grid">
@@ -686,7 +998,7 @@
           <div class="feature-icon">📥</div>
           <h3>Universal Platform Importer</h3>
           <p>
-            Paste any playlist or track link from external music platforms. Aura Player automatically extracts the song list and resolves official high-quality streams.
+            Already have favorite playlists on other platforms? Paste any playlist or album link from YouTube, Spotify, JioSaavn, Gaana, or Amazon Music. Aura Player automatically extracts the song list and resolves official high-quality streams.
           </p>
           <div class="platform-pills">
             <span class="pill" style="color:#FF4444; border-color:#FF444440;">YouTube</span>
@@ -702,7 +1014,7 @@
           <div class="feature-icon">🎤</div>
           <h3>Synchronized Karaoke Lyrics</h3>
           <p>
-            Enjoy real-time millisecond-accurate synchronized lyrics with progressive word highlighting. Features multi-tier online fallback (LRCLIB, JioSaavn, Lyrics.ovh) and a built-in lyrics editor.
+            Sing along with real-time millisecond-accurate synchronized lyrics with progressive word highlighting. Features multi-tier online fallback (LRCLIB, JioSaavn, Lyrics.ovh) and a built-in lyrics editor.
           </p>
         </div>
 
@@ -731,10 +1043,10 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon">🪶</div>
-          <h3>100% Free & Open Source</h3>
+          <div class="feature-icon">⚡</div>
+          <h3>Clean, Bloat-Free & Fast</h3>
           <p>
-            No premium paywalls, no tracking SDKs, no advertisements, and no user accounts required. Download and start listening in seconds.
+            Installs in seconds (25 MB APK). Doesn't consume unnecessary background battery, doesn't request unnecessary permissions, and starts up instantly.
           </p>
         </div>
       </div>
@@ -746,6 +1058,7 @@
     <div class="container">
       <div class="install-card">
         <div class="section-title" style="margin-bottom: 24px;">
+          <span class="section-tag">Quick Setup</span>
           <h2>How to Install on Android</h2>
           <p>Installing an APK directly takes less than 30 seconds.</p>
         </div>
@@ -754,7 +1067,7 @@
           <div class="step-item">
             <div class="step-number">1</div>
             <h4>Download APK</h4>
-            <p>Tap the <b>Download AuraPlayer.apk</b> button on this page. If Chrome or your browser warns you, tap <b>"Download anyway"</b>.</p>
+            <p>Tap the <b>Download AuraPlayer.apk</b> button. If Chrome or your browser warns you that the file may be harmful, tap <b>"Download anyway"</b>.</p>
           </div>
 
           <div class="step-item">
@@ -778,10 +1091,10 @@
 
         <div style="text-align: center; margin-top: 36px;">
           <a href="AuraPlayer.apk" download="AuraPlayer.apk" class="btn-download-primary">
-            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
+            <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;">
               <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2h14v2H5v-2z"/>
             </svg>
-            Download AuraPlayer.apk Now (25 MB)
+            Download AuraPlayer.apk (25 MB)
           </a>
         </div>
       </div>
@@ -790,28 +1103,38 @@
 
   <!-- FAQ Section -->
   <section class="faq-section" id="faq">
-    <div class="section-title">
-      <h2>Frequently Asked Questions</h2>
-    </div>
+    <div class="container">
+      <div class="section-title">
+        <span class="section-tag">Got Questions?</span>
+        <h2>Frequently Asked Questions</h2>
+      </div>
 
-    <div class="faq-item">
-      <h4>Is this APK safe to install?</h4>
-      <p>Yes, 100%. Aura Player is completely open source and built with standard Android Jetpack libraries. You can audit every single line of code in the public <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub repository</a>.</p>
-    </div>
+      <div class="faq-grid">
+        <div class="faq-item">
+          <h4>Why is Aura Player completely free with zero ads?</h4>
+          <p>Aura Player was created as an open-source alternative to modern streaming bloatware. Instead of running expensive server backends that require advertising or subscription paywalls, Aura Player leverages on-device stream extractors directly on your phone. You get pure music with zero commercial middle-men.</p>
+        </div>
 
-    <div class="faq-item">
-      <h4>Do I need a YouTube Premium or Spotify subscription?</h4>
-      <p>No subscriptions are required. Aura Player streams official YouTube music audio streams using open-source extractors directly on your device.</p>
-    </div>
+        <div class="faq-item">
+          <h4>Is this APK safe to install?</h4>
+          <p>Yes, 100%. Aura Player does not ask for dangerous permissions (no contacts, no camera, no location, no SMS). The complete source code is public and open on <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub</a> so anyone can audit the code.</p>
+        </div>
 
-    <div class="faq-item">
-      <h4>How do I update to newer versions?</h4>
-      <p>Whenever a new version is released, simply download the new APK from this page and tap install. Android will update the existing app while preserving all your saved playlists and favorites.</p>
-    </div>
+        <div class="faq-item">
+          <h4>How is my privacy protected?</h4>
+          <p>We do not collect analytics, we don't store your IP address, we don't require an email to sign up, and we have zero advertising trackers embedded. Your playback history and saved playlists are stored privately in your phone's local storage.</p>
+        </div>
 
-    <div class="faq-item">
-      <h4>What Android versions are supported?</h4>
-      <p>Aura Player supports Android 8.0 (Oreo, API 26) through Android 15. It runs smoothly on Samsung, Google Pixel, OnePlus, Xiaomi, and other Android devices.</p>
+        <div class="faq-item">
+          <h4>How do I update to newer versions?</h4>
+          <p>Whenever a new update is released, simply download the new APK from this page and tap install. Android will update the app in place, preserving all your custom playlists and favorites.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>What Android versions are supported?</h4>
+          <p>Aura Player supports Android 8.0 (Oreo, API 26) all the way through Android 15. It runs smoothly on Samsung Galaxy, Google Pixel, OnePlus, Xiaomi, Nothing Phone, Motorola, and other Android devices.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -820,11 +1143,12 @@
     <div class="container">
       <p>
         Aura Player is an open-source project by <a href="https://github.com/Amara-Manikanta" target="_blank" rel="noopener">Manikanta Amara</a>.
-        Licensed under the <a href="https://github.com/Amara-Manikanta/Aura-Player/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.
+        Released under the <a href="https://github.com/Amara-Manikanta/Aura-Player/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.
       </p>
-      <p style="margin-top: 8px;">
+      <p style="margin-top: 10px;">
         <a href="https://github.com/Amara-Manikanta/Aura-Player" target="_blank" rel="noopener">GitHub Repository</a> • 
-        <a href="AuraPlayer.apk" download="AuraPlayer.apk">Direct APK Download</a>
+        <a href="AuraPlayer.apk" download="AuraPlayer.apk">Direct APK Download</a> • 
+        <a href="#why-aura">Why Us</a>
       </p>
     </div>
   </footer>
