@@ -43,17 +43,13 @@ public final class PlaybackManager {
     public var volume: Float = 0.8 {
         didSet {
             player.volume = volume
-            if isVideoViewActive {
-                onWebPlayerAction?(.setVolume(isMuted ? 0 : volume))
-            }
+            onWebPlayerAction?(.setVolume(isMuted ? 0 : volume))
         }
     }
     public var isMuted: Bool = false {
         didSet {
             player.isMuted = isMuted
-            if isVideoViewActive {
-                onWebPlayerAction?(.setVolume(isMuted ? 0 : volume))
-            }
+            onWebPlayerAction?(.setVolume(isMuted ? 0 : volume))
         }
     }
     public var isAudioOnly: Bool = false
@@ -83,9 +79,9 @@ public final class PlaybackManager {
     public var videoInMiniPlayer: Bool = false
     /// The current video can't be shown in the app (embedding disabled), so its audio plays instead
     public private(set) var audioFallbackActive: Bool = false
-    /// True while the YouTube web player (not the audio player) is producing sound
-    private var webPlayerOwnsPlayback: Bool {
-        isVideoViewActive && currentTrack?.sourceType == .youtube && !audioFallbackActive
+    /// True when the current song is streamed via YouTube Web Player
+    public var isYouTubePlayback: Bool {
+        currentTrack?.sourceType == .youtube
     }
     public var onWebPlayerAction: ((WebPlayerAction) -> Void)?
     /// Which web player currently owns `onWebPlayerAction` (main window or mini player)
@@ -94,7 +90,12 @@ public final class PlaybackManager {
     public var webVideoLoadStartedAt = Date.distantPast
     
     // Lyrics & Artwork
-    public var lyrics: SongLyrics?
+    public var lyrics: SongLyrics? {
+        didSet {
+            updateCurrentLyricIndex()
+        }
+    }
+    public var currentLyricIndex: Int = -1
     public var isFetchingLyrics: Bool = false
     public var currentArtworkURL: String?
     
@@ -141,6 +142,7 @@ public final class PlaybackManager {
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 self.currentTime = time.seconds
+                self.updateCurrentLyricIndex()
                 
                 if let currentItem = self.player.currentItem {
                     let itemDuration = currentItem.duration.seconds
@@ -269,33 +271,14 @@ public final class PlaybackManager {
         guard isVideoViewActive != active else { return }
         isVideoViewActive = active
         AppLog.log("playback", "switched to \(active ? "VIDEO" : "MUSIC") view, track=\"\(currentTrack?.title ?? "-")\" youtubeId=\(currentTrack?.youtubeId ?? "nil")")
-        
-        if active {
-            // Transitioning into Video View
-            if currentTrack?.sourceType == .youtube && !audioFallbackActive {
-                // Ensure AVPlayer is paused so only WKWebView outputs audio and video!
-                player.pause()
-                if isPlaying {
-                    onWebPlayerAction?(.play)
-                }
-            }
-        } else {
-            // Transitioning into Music/Audio View
-            if currentTrack?.sourceType == .youtube {
-                // Pause WKWebView so it doesn't continue playing in background
-                onWebPlayerAction?(.pause)
-                if isPlaying {
-                    let cmTime = CMTime(seconds: max(0, min(currentTime, duration)), preferredTimescale: 600)
-                    player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
-                    player.play()
-                }
-            }
-        }
+        // We do NOT pause the YouTube web player when switching between views:
+        // it continues to provide uninterrupted audio and time syncing in Music and Lyrics modes!
     }
     
     public func updateFromWebPlayer(time: TimeInterval, dur: TimeInterval) {
-        guard webPlayerOwnsPlayback else { return }
+        guard isYouTubePlayback else { return }
         self.currentTime = time
+        self.updateCurrentLyricIndex()
         checkTrimEnd()
         if dur > 0 {
             self.duration = dur
@@ -307,9 +290,7 @@ public final class PlaybackManager {
     }
     
     public func updateFromWebPlayer(state: Int) {
-        // When not in Video mode, web player state events (like async pause upon switching to Music or Lyrics)
-        // must never overwrite the playing state of the audio player!
-        guard webPlayerOwnsPlayback else { return }
+        guard isYouTubePlayback else { return }
         let names = [-1: "unstarted", 0: "ended", 1: "playing", 2: "paused", 3: "buffering", 5: "cued"]
         AppLog.log("webplayer", "state \(names[state] ?? String(state)) video=\(currentTrack?.youtubeId ?? "nil")")
         // YT.PlayerState: UNSTARTED = -1, ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3, CUED = 5
@@ -557,6 +538,7 @@ public final class PlaybackManager {
         self.currentTrack = track
         self.currentArtworkURL = track.thumbnailURL
         self.lyrics = nil
+        self.currentLyricIndex = -1
         self.duration = track.duration
         // Web player reads currentTime as its start position, so begin at the trim start
         self.currentTime = track.startTime ?? 0
@@ -625,48 +607,29 @@ public final class PlaybackManager {
                 self?.isFetchingLyrics = false
             }
             
-            // 4. Start Playback based on current view mode
-            if self.webPlayerOwnsPlayback {
-                // If in Video Mode: WKWebView handles playback directly!
-                // No need to wait for AVPlayer stream extraction!
+            // 4. Start Playback
+            if self.isYouTubePlayback {
+                // YouTube tracks: WKWebView plays both audio and video seamlessly across all views
                 self.isPlaying = true
                 self.isLoading = false
                 self.updateNowPlayingInfo()
             } else {
                 // In Audio Mode (or Local track): Resolve stream for AVPlayer
                 do {
-                    let resolvedURL: URL
-                    if track.sourceType == .local {
-                        resolvedURL = URL(fileURLWithPath: track.originalURL)
-                    } else {
-                        // Pass direct video URL using resolvedVid for 3x faster extraction
-                        let streamTarget = (resolvedVid != nil && !resolvedVid!.isEmpty)
-                            ? "https://www.youtube.com/watch?v=\(resolvedVid!)"
-                            : track.originalURL
-                        AppLog.log("playback", "audio stream target: \(streamTarget)")
-                        resolvedURL = try await YouTubeService.shared.resolveDirectStreamURL(
-                            for: streamTarget,
-                            audioOnly: true
-                        )
-                    }
-                    
+                    let resolvedURL = URL(fileURLWithPath: track.originalURL)
                     let item = AVPlayerItem(url: resolvedURL)
                     await AudioLevelMeter.shared.attach(to: item)   // feeds the visualizer
                     self.player.replaceCurrentItem(with: item)
                     if let start = track.startTime, start > 0 {
                         await self.player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                     }
-                    
-                    // Only play AVPlayer if we are STILL in Audio mode
-                    if !self.webPlayerOwnsPlayback {
-                        self.player.play()
-                        self.isPlaying = true
-                    }
+                    self.player.play()
+                    self.isPlaying = true
                     self.isLoading = false
                     self.updateNowPlayingInfo()
                 } catch {
-                    AppLog.log("playback", "audio stream failed: \(error.localizedDescription)")
-                    self.errorMessage = "Failed to load stream: \(error.localizedDescription)"
+                    AppLog.log("playback", "local audio stream failed: \(error.localizedDescription)")
+                    self.errorMessage = "Failed to load audio: \(error.localizedDescription)"
                     self.isLoading = false
                 }
             }
@@ -674,16 +637,12 @@ public final class PlaybackManager {
     }
     
     public func togglePlayPause() {
-        // Video mode with a live web player: control it; the button follows its reported state.
-        // (If no web player is connected, fall through to the audio player instead of only flipping the icon.)
-        if webPlayerOwnsPlayback && onWebPlayerAction != nil {
+        if isYouTubePlayback {
             if isPlaying {
                 isPlaying = false
                 onWebPlayerAction?(.pause)
-                player.pause()
             } else {
                 isPlaying = true
-                player.pause() // Ensure AVPlayer is NOT producing sound
                 onWebPlayerAction?(.play)
             }
         } else {
@@ -709,18 +668,47 @@ public final class PlaybackManager {
             let fetched = await LyricsService.shared.fetchLyrics(artist: track.artist, title: track.title, duration: track.duration)
             guard self?.currentTrack?.id == track.id else { return }
             self?.lyrics = fetched
+            self?.updateCurrentLyricIndex()
         }
     }
     
     public func seek(to seconds: TimeInterval) {
         currentTime = seconds
-        if webPlayerOwnsPlayback {
+        updateCurrentLyricIndex()
+        if isYouTubePlayback {
             onWebPlayerAction?(.seek(seconds))
         } else {
             let cmTime = CMTime(seconds: max(0, min(seconds, duration)), preferredTimescale: 600)
             player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
         }
         updateNowPlayingInfo()
+    }
+    
+    public func updateCurrentLyricIndex() {
+        guard let lines = lyrics?.syncedLines, !lines.isEmpty else {
+            if currentLyricIndex != -1 { currentLyricIndex = -1 }
+            return
+        }
+        
+        let leadTime: Double = 0.32
+        let effectiveTime = currentTime + leadTime
+        
+        if effectiveTime < (lines.first?.time ?? 0) {
+            if currentLyricIndex != -1 { currentLyricIndex = -1 }
+            return
+        }
+        
+        var bestIndex = 0
+        for (i, line) in lines.enumerated() {
+            if effectiveTime >= line.time {
+                bestIndex = i
+            } else {
+                break
+            }
+        }
+        if bestIndex != currentLyricIndex {
+            currentLyricIndex = bestIndex
+        }
     }
     
     public func next() {

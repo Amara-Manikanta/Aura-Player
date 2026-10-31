@@ -27,40 +27,10 @@ public struct MainView: View {
             ZStack {
                 Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
                 
-                if (showVideoView || playback.displayMode == .video) && (selection == .nowPlaying || selection == nil) {
-                    // Full Video View
-                    ZStack {
-                        Color.black.ignoresSafeArea()
-                        
-                        if playback.videoInMiniPlayer {
-                            VStack(spacing: 12) {
-                                Image(systemName: "pip")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.secondary)
-                                Text("Playing in Mini Player")
-                                    .font(.headline)
-                                Text("Switch the mini player to Music, or close it, to watch here.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else if let current = playback.currentTrack {
-                            VideoPlayerView(track: current, playback: playback)
-                                .ignoresSafeArea()
-                        } else {
-                            VStack(spacing: 12) {
-                                Image(systemName: "tv")
-                                    .font(.system(size: 48))
-                                    .foregroundStyle(.secondary)
-                                Text("No Video Playing")
-                                    .font(.headline)
-                                Text("Play a video track or switch to Music view")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                } else {
-                    // Standard Views
+                let isVideoActive = (showVideoView || playback.displayMode == .video) && (selection == .nowPlaying || selection == nil)
+                
+                // Standard Views (Music Cover Art, Lyrics, Playlists, Library)
+                Group {
                     switch selection {
                     case .nowPlaying:
                         AudioPlayerView(playback: playback)
@@ -103,6 +73,40 @@ public struct MainView: View {
                     case .none:
                         AudioPlayerView(playback: playback)
                     }
+                }
+                .opacity(isVideoActive ? 0 : 1)
+                .allowsHitTesting(!isVideoActive)
+                
+                // Video Player Area (Persistent for YouTube and video tracks so playback and time updates NEVER stop)
+                if let current = playback.currentTrack, (current.sourceType == .youtube || current.mediaType == .video) {
+                    ZStack {
+                        if isVideoActive {
+                            Color.black.ignoresSafeArea()
+                        }
+                        
+                        if playback.videoInMiniPlayer && isVideoActive {
+                            VStack(spacing: 12) {
+                                Image(systemName: "pip")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.secondary)
+                                Text("Playing in Mini Player")
+                                    .font(.headline)
+                                Text("Switch the mini player to Music, or close it, to watch here.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            VideoPlayerView(track: current, playback: playback)
+                                .ignoresSafeArea()
+                        }
+                    }
+                    .frame(
+                        width: isVideoActive ? nil : 1,
+                        height: isVideoActive ? nil : 1
+                    )
+                    .opacity(isVideoActive ? 1 : 0.001)
+                    .allowsHitTesting(isVideoActive)
+                    .accessibilityHidden(!isVideoActive)
                 }
             }
             .safeAreaInset(edge: .bottom) {

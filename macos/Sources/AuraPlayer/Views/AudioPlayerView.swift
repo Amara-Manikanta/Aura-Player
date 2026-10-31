@@ -243,7 +243,7 @@ public struct AudioPlayerView: View {
                     // Time-Synced Karaoke Lyrics
                     ScrollViewReader { proxy in
                         ScrollView {
-                            let activeIdx = activeLineIndex(at: playback.currentTime, in: lyrics.syncedLines)
+                            let activeIdx = playback.currentLyricIndex >= 0 ? playback.currentLyricIndex : nil
                             
                             LazyVStack(alignment: .leading, spacing: 18) {
                                 ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
@@ -344,14 +344,15 @@ public struct AudioPlayerView: View {
                             )
                         )
                         .onAppear {
-                            if let active = activeLine(at: playback.currentTime, in: lyrics.syncedLines) {
-                                proxy.scrollTo(active.id, anchor: .center)
+                            let i = playback.currentLyricIndex
+                            if i >= 0, i < lyrics.syncedLines.count {
+                                proxy.scrollTo(lyrics.syncedLines[i].id, anchor: .center)
                             }
                         }
-                        .onChange(of: playback.currentTime) { _, newTime in
-                            if let active = activeLine(at: newTime, in: lyrics.syncedLines) {
+                        .onChange(of: playback.currentLyricIndex) { _, newIndex in
+                            if newIndex >= 0 && newIndex < lyrics.syncedLines.count {
                                 withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
-                                    proxy.scrollTo(active.id, anchor: .center)
+                                    proxy.scrollTo(lyrics.syncedLines[newIndex].id, anchor: .center)
                                 }
                             }
                         }
@@ -410,9 +411,8 @@ public struct AudioPlayerView: View {
     
     private func activeLineIndex(at time: TimeInterval, in lines: [LyricLine]) -> Int? {
         guard !lines.isEmpty else { return nil }
-        // Before first lyric or during intro, keep the upcoming first line active
-        if let first = lines.first, time < first.time {
-            return 0
+        if let first = lines.first, time + 0.32 < first.time {
+            return nil
         }
         var index: Int = 0
         for (i, line) in lines.enumerated() {
@@ -426,8 +426,10 @@ public struct AudioPlayerView: View {
     }
     
     private func isCurrentLine(_ line: LyricLine, in lines: [LyricLine]) -> Bool {
-        guard let active = activeLine(at: playback.currentTime, in: lines) else { return false }
-        return active.id == line.id
+        if playback.currentLyricIndex >= 0 && playback.currentLyricIndex < lines.count {
+            return lines[playback.currentLyricIndex].id == line.id
+        }
+        return false
     }
     
     private var fallbackArtwork: some View {
