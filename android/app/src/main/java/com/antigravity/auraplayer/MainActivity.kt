@@ -1,6 +1,8 @@
 package com.antigravity.auraplayer
 
+import android.Manifest
 import android.app.PictureInPictureParams
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -8,7 +10,9 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.core.content.ContextCompat
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.MediaType
 import com.antigravity.auraplayer.service.PlaybackManager
@@ -21,9 +25,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var playbackManager: PlaybackManager
     private var isInPiPMode by mutableStateOf(false)
 
+    private val requestNotificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* system notification permission result */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        checkNotificationPermission()
 
         repository = PlaylistRepository.getInstance(applicationContext)
         playbackManager = PlaybackManager.getInstance(applicationContext)
@@ -42,6 +50,16 @@ class MainActivity : ComponentActivity() {
                         onEnterPiP = { enterPictureInPicture() }
                     )
                 }
+            }
+        }
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }

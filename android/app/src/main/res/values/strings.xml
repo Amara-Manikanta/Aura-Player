@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AuraPlayer</string>
+    <string name="app_name">Aura Player</string>
     <string name="audio_mode">Audio</string>
     <string name="video_mode">Video</string>
 </resources>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer ambient aura glow -->
+    <path
+        android:pathData="M54,30 A24,24 0 1 0 54,78 A24,24 0 1 0 54,30 Z"
+        android:fillColor="#ED5564"
+        android:fillAlpha="0.35" />
+    <!-- Center white/coral play symbol with rounded aesthetics -->
+    <path
+        android:pathData="M44,36 C44,34.5 45.6,33.5 47,34.3 L72,52.3 C73.3,53.1 73.3,54.9 72,55.7 L47,73.7 C45.6,74.5 44,73.5 44,72 Z"
+        android:fillColor="#FFFFFF" />
+    <!-- Sound wave accent top-right -->
+    <path
+        android:pathData="M74,40 C78,44 80,49 80,54 C80,59 78,64 74,68"
+        android:strokeColor="#ED5564"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M82,34 C88,40 91,47 91,54 C91,61 88,68 82,74"
+        android:strokeColor="#A855F7"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round" />
+</vector>
