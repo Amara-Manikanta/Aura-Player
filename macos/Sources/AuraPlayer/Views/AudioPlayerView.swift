@@ -2,7 +2,6 @@ import SwiftUI
 
 public struct AudioPlayerView: View {
     @Bindable var playback: PlaybackManager
-    @State private var showLyrics: Bool = false
     @State private var showLyricsEditor: Bool = false
     @State private var waveAnimation: Bool = false
     @AppStorage("showVisualizer") private var showVisualizer = true
@@ -38,13 +37,13 @@ public struct AudioPlayerView: View {
                         .padding(.top, 16)
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showLyrics.toggle()
+                            playback.displayMode = (playback.displayMode == .lyrics) ? .audio : .lyrics
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: showLyrics ? "music.note" : "quote.bubble.fill")
+                            Image(systemName: playback.displayMode == .lyrics ? "music.note" : "quote.bubble.fill")
                                 .font(.system(size: 12))
-                            Text(showLyrics ? "Cover Art" : "Lyrics")
+                            Text(playback.displayMode == .lyrics ? "Cover Art" : "Lyrics")
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .padding(.horizontal, 12)
@@ -57,7 +56,7 @@ public struct AudioPlayerView: View {
                     .padding(.trailing, 24)
                 }
                 
-                if showLyrics {
+                if playback.displayMode == .lyrics {
                     // Synchronized & Plain Lyrics View
                     lyricsContentView
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -168,7 +167,14 @@ public struct AudioPlayerView: View {
     
     // MARK: - Lyrics View (Apple Music Style Karaoke)
     private var lyricsContentView: some View {
-        VStack(spacing: 16) {
+        ZStack {
+            if let track = playback.currentTrack,
+               let deity = DevotionalDeity.detect(track: track) {
+                DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
+                    .allowsHitTesting(false)
+            }
+            
+            VStack(spacing: 16) {
             // Track Header
             HStack(spacing: 12) {
                 if let thumb = playback.currentArtworkURL ?? playback.currentTrack?.thumbnailURL,
@@ -256,7 +262,7 @@ public struct AudioPlayerView: View {
                                                 }
                                                 .foregroundStyle(
                                                     LinearGradient(
-                                                        colors: [.white, Color.purple],
+                                                        colors: DevotionalDeity.detect(track: playback.currentTrack) != nil ? [.white, Color.orange] : [.white, Color.purple],
                                                         startPoint: .top,
                                                         endPoint: .bottom
                                                     )
@@ -273,10 +279,15 @@ public struct AudioPlayerView: View {
                                         .padding(.horizontal, 16)
                                         .background {
                                             if isCurrent {
+                                                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                                     .fill(
                                                         LinearGradient(
-                                                            colors: [
+                                                            colors: isDevotional ? [
+                                                                Color(red: 1.0, green: 0.85, blue: 0.4).opacity(0.24),
+                                                                Color(red: 1.0, green: 0.55, blue: 0.1).opacity(0.18),
+                                                                Color.white.opacity(0.08)
+                                                            ] : [
                                                                 Color.white.opacity(0.18),
                                                                 Color.purple.opacity(0.15),
                                                                 Color.white.opacity(0.06)
@@ -289,7 +300,11 @@ public struct AudioPlayerView: View {
                                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                                                             .stroke(
                                                                 LinearGradient(
-                                                                    colors: [
+                                                                    colors: isDevotional ? [
+                                                                        Color(red: 1.0, green: 0.88, blue: 0.5).opacity(0.65),
+                                                                        Color(red: 1.0, green: 0.6, blue: 0.1).opacity(0.4),
+                                                                        Color.white.opacity(0.12)
+                                                                    ] : [
                                                                         Color.white.opacity(0.55),
                                                                         Color.purple.opacity(0.35),
                                                                         Color.white.opacity(0.08)
@@ -300,7 +315,7 @@ public struct AudioPlayerView: View {
                                                                 lineWidth: 1.2
                                                             )
                                                     )
-                                                    .shadow(color: Color.purple.opacity(0.35), radius: 14, x: 0, y: 4)
+                                                    .shadow(color: (isDevotional ? Color.orange : Color.purple).opacity(0.35), radius: 14, x: 0, y: 4)
                                                     .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
                                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                                             }
@@ -361,6 +376,7 @@ public struct AudioPlayerView: View {
             }
         }
     }
+    }
     
     private var noLyricsPlaceholder: some View {
         VStack(spacing: 12) {
@@ -393,11 +409,12 @@ public struct AudioPlayerView: View {
     }
     
     private func activeLineIndex(at time: TimeInterval, in lines: [LyricLine]) -> Int? {
-        // Instrumental intro protection: don't highlight until first lyric approaches
-        if let first = lines.first, time + 0.32 < first.time {
-            return nil
+        guard !lines.isEmpty else { return nil }
+        // Before first lyric or during intro, keep the upcoming first line active
+        if let first = lines.first, time < first.time {
+            return 0
         }
-        var index: Int? = nil
+        var index: Int = 0
         for (i, line) in lines.enumerated() {
             if line.time <= time + 0.32 {
                 index = i

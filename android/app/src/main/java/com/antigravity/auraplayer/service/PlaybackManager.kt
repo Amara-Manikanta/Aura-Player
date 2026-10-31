@@ -369,15 +369,23 @@ class PlaybackManager private constructor(private val context: Context) {
     }
 
     fun setDisplayMode(mode: DisplayMode) {
+        val wasVideo = _displayMode.value == DisplayMode.VIDEO
         _displayMode.value = mode
         _isAudioOnly.value = mode != DisplayMode.VIDEO
+        if (wasVideo && mode != DisplayMode.VIDEO && isVideoActive) {
+            onVideoHidden()
+        }
     }
 
     fun toggleAudioOnly() = setDisplayMode(if (_displayMode.value == DisplayMode.VIDEO) DisplayMode.AUDIO else DisplayMode.VIDEO)
 
     fun toggleShuffle() {
-        _isShuffled.value = !_isShuffled.value
-        if (_isShuffled.value) {
+        setShuffle(!_isShuffled.value)
+    }
+
+    fun setShuffle(enabled: Boolean) {
+        _isShuffled.value = enabled
+        if (enabled) {
             val current = _currentTrack.value
             _queue.value = listOfNotNull(current) + _queue.value.filter { it.id != current?.id }.shuffled()
         }

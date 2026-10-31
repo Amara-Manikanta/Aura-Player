@@ -41,15 +41,36 @@ fun LyricsView(
     /** Smaller text, for the strip under the video */
     compact: Boolean = false,
     isPlaying: Boolean = false,
+    track: com.antigravity.auraplayer.model.MediaTrack? = null,
     onAddLyrics: (() -> Unit)? = null
 ) {
+    val deity = remember(track?.id, track?.title, track?.artist) {
+        DeityDetector.detect(track)
+    }
+
+    val accentColor = if (deity != null) Color(0xFFFFD54F) else NeonPurple
+    val accentDotColor = if (deity != null) Color(0xFFFFB300) else NeonPink
+
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = if (compact) 12.dp else 20.dp),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        if (!syncedLyrics.isNullOrEmpty()) {
+        // Divine God Effects in Background for Devotional Songs
+        if (deity != null && !compact) {
+            DevotionalGodEffects(
+                deity = deity,
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (compact) 12.dp else 20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!syncedLyrics.isNullOrEmpty()) {
             val listState = rememberLazyListState()
 
             // When current line changes, scroll it towards the center
@@ -109,9 +130,9 @@ fun LyricsView(
                                         .background(
                                             brush = Brush.linearGradient(
                                                 listOf(
-                                                    Color.White.copy(alpha = 0.18f),
-                                                    NeonPurple.copy(alpha = 0.15f),
-                                                    Color.White.copy(alpha = 0.06f)
+                                                    Color.White.copy(alpha = 0.20f),
+                                                    accentColor.copy(alpha = if (deity != null) 0.25f else 0.15f),
+                                                    Color.White.copy(alpha = 0.08f)
                                                 )
                                             ),
                                             shape = RoundedCornerShape(if (compact) 14.dp else 18.dp)
@@ -120,9 +141,9 @@ fun LyricsView(
                                             width = 1.2.dp,
                                             brush = Brush.linearGradient(
                                                 listOf(
-                                                    Color.White.copy(alpha = 0.55f),
-                                                    NeonPurple.copy(alpha = 0.35f),
-                                                    Color.White.copy(alpha = 0.08f)
+                                                    Color.White.copy(alpha = 0.65f),
+                                                    accentColor.copy(alpha = if (deity != null) 0.55f else 0.35f),
+                                                    Color.White.copy(alpha = 0.12f)
                                                 )
                                             ),
                                             shape = RoundedCornerShape(if (compact) 14.dp else 18.dp)
@@ -150,13 +171,13 @@ fun LyricsView(
                                     Icon(
                                         imageVector = Icons.Default.MusicNote,
                                         contentDescription = null,
-                                        tint = NeonPink,
+                                        tint = accentDotColor,
                                         modifier = Modifier.size(if (compact) 14.dp else 18.dp)
                                     )
                                     Box(
                                         modifier = Modifier
                                             .size(5.dp)
-                                            .background(NeonPink, CircleShape)
+                                            .background(accentDotColor, CircleShape)
                                     )
                                 }
                             }
@@ -166,7 +187,7 @@ fun LyricsView(
                                     fontSize = if (compact) 17.sp else 24.sp,
                                     lineHeight = if (compact) 23.sp else 32.sp
                                 ),
-                                color = if (isActive) Color.White else Color.White.copy(alpha = alpha),
+                                color = if (isActive) (if (deity != null) Color(0xFFFFFDE7) else Color.White) else Color.White.copy(alpha = alpha),
                                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                                 textAlign = TextAlign.Center
                             )
@@ -241,4 +262,5 @@ fun LyricsView(
             }
         }
     }
+}
 }

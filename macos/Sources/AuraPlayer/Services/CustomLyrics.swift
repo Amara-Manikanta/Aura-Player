@@ -13,24 +13,31 @@ enum CustomLyricsFile {
         var isFullySynced: Bool { !lines.isEmpty && times.count == lines.count && !times.contains(where: { $0 == nil }) }
 
         /// A time for every line, so a few lines that were never tapped don't turn highlighting off:
-        /// they get a time between their neighbours. nil when too few lines are synced to follow along.
+        /// they get a time between their neighbours. If timestamps are missing, provides a natural progression.
         var filledTimes: [Double]? {
-            guard times.count == lines.count else { return nil }
+            guard !lines.isEmpty else { return nil }
             let known = times.enumerated().compactMap { i, t in t.map { (i, $0) } }
-            guard known.count >= 2, known.count * 2 >= lines.count else { return nil }
-            var out = [Double](repeating: 0, count: lines.count)
-            for (i, t) in known { out[i] = t }
-            for i in 0..<lines.count where times[i] == nil {
-                let before = known.last { $0.0 < i }
-                let after = known.first { $0.0 > i }
-                switch (before, after) {
-                case let (b?, a?): out[i] = b.1 + (a.1 - b.1) * Double(i - b.0) / Double(a.0 - b.0)
-                case let (b?, nil): out[i] = b.1 + 4 * Double(i - b.0)
-                case let (nil, a?): out[i] = max(0, a.1 - 4 * Double(a.0 - i))
-                default: break
+            if known.count >= 2 {
+                var out = [Double](repeating: 0, count: lines.count)
+                for (i, t) in known { out[i] = t }
+                for i in 0..<lines.count where i >= times.count || times[i] == nil {
+                    let before = known.last { $0.0 < i }
+                    let after = known.first { $0.0 > i }
+                    switch (before, after) {
+                    case let (b?, a?): out[i] = b.1 + (a.1 - b.1) * Double(i - b.0) / Double(a.0 - b.0)
+                    case let (b?, nil): out[i] = b.1 + 4.5 * Double(i - b.0)
+                    case let (nil, a?): out[i] = max(0, a.1 - 4.5 * Double(a.0 - i))
+                    default: break
+                    }
                 }
+                return out
             }
-            return out
+            if known.count == 1 {
+                let (idx, t) = known[0]
+                return (0..<lines.count).map { i in max(0, t + Double(i - idx) * 5.0) }
+            }
+            // Natural default distribution: 15s intro, 5.0s per line
+            return (0..<lines.count).map { i in 15.0 + Double(i) * 5.0 }
         }
     }
     
@@ -51,7 +58,26 @@ enum CustomLyricsFile {
     }
     
     static func entry(title: String, artist: String) -> Entry? {
-        loadAll()[key(title: title, artist: artist)]
+        let all = loadAll()
+        let k = key(title: title, artist: artist)
+        if let exact = all[k] { return exact }
+        
+        let song = MediaTrack(title: title, artist: artist, sourceType: .youtube, originalURL: "")
+        let tNorm = ArtistPhotoService.normalize(song.coreTitle)
+        if !tNorm.isEmpty {
+            for (candidateKey, entry) in all {
+                let parts = candidateKey.split(separator: "|")
+                if let firstPart = parts.first, firstPart == tNorm {
+                    return entry
+                }
+            }
+            for (candidateKey, entry) in all {
+                if candidateKey.contains(tNorm) {
+                    return entry
+                }
+            }
+        }
+        return nil
     }
     
     static func save(_ entry: Entry, title: String, artist: String) {

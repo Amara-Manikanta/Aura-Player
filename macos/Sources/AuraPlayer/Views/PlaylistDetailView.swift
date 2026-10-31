@@ -116,18 +116,27 @@ public struct PlaylistDetailView: View {
                         .disabled(pl.tracks.isEmpty)
                         
                         Button {
-                            var shuffled = pl.tracks
-                            shuffled.shuffle()
-                            if let first = shuffled.first {
-                                playback.playTrack(first, inQueue: shuffled, context: .playlist(pl.id))
+                            guard !pl.tracks.isEmpty else { return }
+                            playback.isShuffle = true
+                            var pool = pl.tracks
+                            if pool.count > 1, let current = playback.currentTrack {
+                                pool.removeAll { $0.id == current.id }
                             }
+                            pool.shuffle()
+                            let pick = pool.first ?? pl.tracks.first!
+                            var fullQueue = pl.tracks.filter { $0.id != pick.id }.shuffled()
+                            fullQueue.insert(pick, at: 0)
+                            playback.playTrack(pick, inQueue: fullQueue, context: .playlist(pl.id))
                         } label: {
-                            Label("Shuffle", systemImage: "shuffle")
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.1))
-                                .foregroundStyle(.white)
-                                .clipShape(Capsule())
+                            HStack(spacing: 6) {
+                                Image(systemName: "shuffle")
+                                Text("Shuffle")
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(playback.isShuffle && playback.contextPlaylistId == pl.id ? Color.purple.opacity(0.4) : Color.white.opacity(0.1))
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
                         .disabled(pl.tracks.isEmpty)

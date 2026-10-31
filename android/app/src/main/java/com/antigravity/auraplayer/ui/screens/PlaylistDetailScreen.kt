@@ -172,9 +172,14 @@ fun PlaylistDetailScreen(
 
                 Button(
                     onClick = {
-                        val shuffled = playlist.tracks.shuffled()
-                        shuffled.firstOrNull()?.let {
-                            playbackManager.playTrack(it, shuffled, context)
+                        val tracks = playlist.tracks
+                        if (tracks.isNotEmpty()) {
+                            val cur = playbackManager.currentTrack.value
+                            val pool = if (tracks.size > 1 && cur != null) tracks.filter { it.id != cur.id } else tracks
+                            val start = pool.random()
+                            val shuffled = listOf(start) + tracks.filter { it.id != start.id }.shuffled()
+                            playbackManager.setShuffle(true)
+                            playbackManager.playTrack(start, shuffled, context)
                         }
                     },
                     enabled = playlist.tracks.isNotEmpty(),

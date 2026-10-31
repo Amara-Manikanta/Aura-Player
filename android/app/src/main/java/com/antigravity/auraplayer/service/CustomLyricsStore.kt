@@ -27,33 +27,48 @@ object CustomLyricsStore {
 
         val filledTimesMs: List<Long>?
             get() {
-                if (timesMs.size != lines.size) return null
+                if (lines.isEmpty()) return null
                 val known = timesMs.mapIndexedNotNull { i, t -> t?.let { i to it } }
-                if (known.size < 2 || known.size * 2 < lines.size) return null
-                val out = LongArray(lines.size)
-                for ((i, t) in known) { out[i] = t }
-                for (i in lines.indices) {
-                    if (timesMs[i] == null) {
-                        val before = known.lastOrNull { it.first < i }
-                        val after = known.firstOrNull { it.first > i }
-                        when {
-                            before != null && after != null -> {
-                                val span = after.second - before.second
-                                val steps = after.first - before.first
-                                out[i] = before.second + (span * (i - before.first) / steps)
+                if (known.size >= 2) {
+                    val out = LongArray(lines.size)
+                    for ((i, t) in known) { out[i] = t }
+                    for (i in lines.indices) {
+                        if (i >= timesMs.size || timesMs[i] == null) {
+                            val before = known.lastOrNull { it.first < i }
+                            val after = known.firstOrNull { it.first > i }
+                            when {
+                                before != null && after != null -> {
+                                    val span = after.second - before.second
+                                    val steps = after.first - before.first
+                                    out[i] = before.second + (span * (i - before.first) / steps)
+                                }
+                                before != null -> out[i] = before.second + 4500L * (i - before.first)
+                                after != null -> out[i] = (after.second - 4500L * (after.first - i)).coerceAtLeast(0L)
                             }
-                            before != null -> out[i] = before.second + 4000L * (i - before.first)
-                            after != null -> out[i] = (after.second - 4000L * (after.first - i)).coerceAtLeast(0L)
                         }
                     }
+                    return out.toList()
                 }
-                return out.toList()
+                if (known.size == 1) {
+                    val (idx, t) = known[0]
+                    return lines.indices.map { i -> (t + (i - idx) * 5000L).coerceAtLeast(0L) }
+                }
+                // Natural default: 15s intro, 5000ms per line
+                return lines.indices.map { i -> 15000L + i * 5000L }
             }
     }
 
     fun init(context: Context) {
         if (file != null) return
         file = File(context.filesDir, "custom_lyrics.json")
+        val f = file!!
+        if (!f.exists()) {
+            try {
+                context.assets.open("custom_lyrics.json").use { input ->
+                    f.outputStream().use { output -> input.copyTo(output) }
+                }
+            } catch (ignored: Exception) { }
+        }
         load()
     }
 

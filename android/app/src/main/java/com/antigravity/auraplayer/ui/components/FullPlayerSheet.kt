@@ -95,6 +95,7 @@ fun FullPlayerSheet(
                         currentLyricIndex = currentLyricIndex,
                         onSeekToTime = { playbackManager.seekTo(it) },
                         isPlaying = isPlaying,
+                        track = t,
                         onAddLyrics = { showLyricsEditor = true }
                     )
                 } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
@@ -119,6 +120,7 @@ fun FullPlayerSheet(
                                     onSeekToTime = { playbackManager.seekTo(it) },
                                     compact = true,
                                     isPlaying = isPlaying,
+                                    track = t,
                                     onAddLyrics = { showLyricsEditor = true }
                                 )
                             }

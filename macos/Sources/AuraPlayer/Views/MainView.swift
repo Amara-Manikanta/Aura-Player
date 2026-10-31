@@ -27,7 +27,7 @@ public struct MainView: View {
             ZStack {
                 Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
                 
-                if showVideoView && (selection == .nowPlaying || selection == nil) {
+                if (showVideoView || playback.displayMode == .video) && (selection == .nowPlaying || selection == nil) {
                     // Full Video View
                     ZStack {
                         Color.black.ignoresSafeArea()
@@ -109,7 +109,8 @@ public struct MainView: View {
                 BottomControlBar(
                     playback: playback,
                     store: store,
-                    showVideoView: $showVideoView
+                    showVideoView: $showVideoView,
+                    selection: $selection
                 )
             }
         }
@@ -157,8 +158,13 @@ public struct MainView: View {
         .onChange(of: showVideoView) { _, isVideo in
             if isVideo {
                 selection = .nowPlaying
+                playback.displayMode = .video
+            } else if playback.displayMode == .video {
+                playback.displayMode = .audio
             }
-            playback.setVideoViewActive(isVideo)
+        }
+        .onChange(of: playback.displayMode) { _, newMode in
+            showVideoView = (newMode == .video)
         }
     }
     

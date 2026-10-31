@@ -4,14 +4,21 @@ public struct BottomControlBar: View {
     @Bindable var playback: PlaybackManager
     @Bindable var store: PlaylistStore
     @Binding var showVideoView: Bool
+    var selection: Binding<SidebarSelection?>? = nil
     
     @State private var isDraggingScrubber: Bool = false
     @State private var scrubTime: TimeInterval = 0
     
-    public init(playback: PlaybackManager, store: PlaylistStore, showVideoView: Binding<Bool>) {
+    public init(
+        playback: PlaybackManager,
+        store: PlaylistStore,
+        showVideoView: Binding<Bool>,
+        selection: Binding<SidebarSelection?>? = nil
+    ) {
         self.playback = playback
         self.store = store
         self._showVideoView = showVideoView
+        self.selection = selection
     }
     
     public var body: some View {
@@ -49,32 +56,42 @@ public struct BottomControlBar: View {
                 // Left: Track Info & Favorite Heart
                 HStack(spacing: 12) {
                     if let track = playback.currentTrack {
-                        Group {
-                            if let thumb = playback.currentArtworkURL, let url = URL(string: thumb) {
-                                AsyncImage(url: url) { phase in
-                                    if let img = phase.image {
-                                        img.resizable().aspectRatio(contentMode: .fill)
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showVideoView = false
+                                selection?.wrappedValue = .nowPlaying
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Group {
+                                    if let thumb = playback.currentArtworkURL, let url = URL(string: thumb) {
+                                        AsyncImage(url: url) { phase in
+                                            if let img = phase.image {
+                                                img.resizable().aspectRatio(contentMode: .fill)
+                                            } else {
+                                                Color.gray.opacity(0.3)
+                                            }
+                                        }
+                                        .frame(width: 44, height: 44)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     } else {
-                                        Color.gray.opacity(0.3)
+                                        TrackArtworkView(track: track, size: 44, cornerRadius: 8)
                                     }
                                 }
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            } else {
-                                TrackArtworkView(track: track, size: 44, cornerRadius: 8)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(track.title)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .lineLimit(1)
+                                    
+                                    Text(track.artist)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
                         }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .lineLimit(1)
-                            
-                            Text(track.artist)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
+                        .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(-1)   // the title shrinks first, so the buttons always stay visible
                         
@@ -225,29 +242,87 @@ public struct BottomControlBar: View {
                     
                     Divider().frame(height: 20)
                     
-                    // Video vs Audio View Toggle
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showVideoView.toggle()
-                            playback.setVideoViewActive(showVideoView)
+                    // Display Mode Switcher: Music (Album Artwork) | Video (YouTube) | Lyrics (Karaoke)
+                    HStack(spacing: 4) {
+                        // Music Mode
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showVideoView = false
+                                playback.displayMode = .audio
+                                if selection?.wrappedValue != .nowPlaying {
+                                    selection?.wrappedValue = .nowPlaying
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "music.note")
+                                Text("Music")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule().fill(selection?.wrappedValue == .nowPlaying && !showVideoView && playback.displayMode == .audio ? Color.purple.opacity(0.85) : Color.white.opacity(0.12))
+                            )
+                            .foregroundStyle(.white)
                         }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: showVideoView ? "tv.fill" : "music.note")
-                            Text(showVideoView ? "Video" : "Music")
-                                .font(.system(size: 11, weight: .semibold))
+                        .buttonStyle(.plain)
+                        .help("Show Music & Album Artwork")
+                        
+                        // Video Mode
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showVideoView = true
+                                playback.displayMode = .video
+                                if selection?.wrappedValue != .nowPlaying {
+                                    selection?.wrappedValue = .nowPlaying
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "tv.fill")
+                                Text("Video")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule().fill(showVideoView && playback.displayMode == .video ? Color.purple.opacity(0.85) : Color.white.opacity(0.12))
+                            )
+                            .foregroundStyle(.white)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule().fill(showVideoView ? Color.purple.opacity(0.8) : Color.white.opacity(0.12))
-                        )
-                        .foregroundStyle(.white)
+                        .buttonStyle(.plain)
+                        .help("Show Music Video")
+                        
+                        // Lyrics Mode
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showVideoView = false
+                                playback.displayMode = .lyrics
+                                if selection?.wrappedValue != .nowPlaying {
+                                    selection?.wrappedValue = .nowPlaying
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "quote.bubble.fill")
+                                Text("Lyrics")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule().fill(selection?.wrappedValue == .nowPlaying && !showVideoView && playback.displayMode == .lyrics ? Color.purple.opacity(0.85) : Color.white.opacity(0.12))
+                            )
+                            .foregroundStyle(.white)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show Time-Synced Lyrics")
                     }
-                    .buttonStyle(.plain)
-                    .help(showVideoView ? "Switch to Music View" : "Switch to Video View")
+                    .padding(2)
+                    .background(Color.black.opacity(0.2), in: Capsule())
                 }
-                .frame(width: 280, alignment: .trailing)
+                .frame(width: 360, alignment: .trailing)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)

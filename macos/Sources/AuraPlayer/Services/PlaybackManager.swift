@@ -65,6 +65,18 @@ public final class PlaybackManager {
     public var isLoading: Bool = false
     public var errorMessage: String?
     
+    // Display Mode: Music (Album Artwork), Video (YouTube), Lyrics (Karaoke)
+    public enum PlaybackDisplayMode: String, CaseIterable, Sendable {
+        case audio = "Music"
+        case video = "Video"
+        case lyrics = "Lyrics"
+    }
+    public var displayMode: PlaybackDisplayMode = .lyrics {
+        didSet {
+            setVideoViewActive(displayMode == .video)
+        }
+    }
+    
     // Video view mode & Web Player synchronization bridge
     public var isVideoViewActive: Bool = false
     /// The mini player is showing the video, so the main window must not show a second copy
@@ -282,6 +294,7 @@ public final class PlaybackManager {
     }
     
     public func updateFromWebPlayer(time: TimeInterval, dur: TimeInterval) {
+        guard webPlayerOwnsPlayback else { return }
         self.currentTime = time
         checkTrimEnd()
         if dur > 0 {
@@ -294,6 +307,9 @@ public final class PlaybackManager {
     }
     
     public func updateFromWebPlayer(state: Int) {
+        // When not in Video mode, web player state events (like async pause upon switching to Music or Lyrics)
+        // must never overwrite the playing state of the audio player!
+        guard webPlayerOwnsPlayback else { return }
         let names = [-1: "unstarted", 0: "ended", 1: "playing", 2: "paused", 3: "buffering", 5: "cued"]
         AppLog.log("webplayer", "state \(names[state] ?? String(state)) video=\(currentTrack?.youtubeId ?? "nil")")
         // YT.PlayerState: UNSTARTED = -1, ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3, CUED = 5
@@ -734,6 +750,7 @@ public final class PlaybackManager {
                 }
             }
             let nextIndex = shuffledIndices[shufflePointer]
+            currentIndex = nextIndex
             playTrack(queue[nextIndex])
         } else {
             currentIndex = (currentIndex + 1) % queue.count
