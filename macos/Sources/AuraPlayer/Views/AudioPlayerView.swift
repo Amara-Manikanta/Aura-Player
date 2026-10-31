@@ -244,10 +244,76 @@ public struct AudioPlayerView: View {
                     ScrollViewReader { proxy in
                         ScrollView {
                             let activeIdx = playback.currentLyricIndex >= 0 ? playback.currentLyricIndex : nil
+                            let firstLineTime = lyrics.syncedLines.first?.time ?? 0
+                            let isIntro = (playback.currentLyricIndex < 0 && playback.currentTime < firstLineTime && firstLineTime >= 2.5)
+                            let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                             
                             LazyVStack(alignment: .leading, spacing: 18) {
+                                if isIntro {
+                                    let remaining = max(0, Int(firstLineTime - playback.currentTime))
+                                    HStack(spacing: 12) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "waveform")
+                                                .font(.system(size: 15, weight: .bold))
+                                                .foregroundStyle(isDevotional ? Color.orange : Color.purple)
+                                            Text("Instrumental Intro")
+                                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                .foregroundStyle(.white)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        HStack(spacing: 8) {
+                                            Text("Vocals in \(remaining)s")
+                                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                                .foregroundStyle(.white.opacity(0.9))
+                                                .padding(.horizontal, 9)
+                                                .padding(.vertical, 4)
+                                                .background(Capsule().fill(Color.white.opacity(0.12)))
+                                            
+                                            Button {
+                                                playback.seek(to: max(0, firstLineTime - 0.3))
+                                            } label: {
+                                                HStack(spacing: 4) {
+                                                    Text("Skip Intro")
+                                                    Image(systemName: "forward.end.fill")
+                                                        .font(.system(size: 9))
+                                                }
+                                                .font(.system(size: 11, weight: .bold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 5)
+                                                .background(
+                                                    Capsule().fill(
+                                                        LinearGradient(
+                                                            colors: isDevotional ? [Color.orange, Color.red.opacity(0.85)] : [Color.purple, Color.indigo],
+                                                            startPoint: .leading,
+                                                            endPoint: .trailing
+                                                        )
+                                                    )
+                                                )
+                                                .foregroundStyle(.white)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Jump straight to vocals")
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(Color.white.opacity(0.08))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .stroke((isDevotional ? Color.orange : Color.purple).opacity(0.35), lineWidth: 1)
+                                            )
+                                    )
+                                    .padding(.bottom, 6)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                }
+                                
                                 ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
                                     let isCurrent = (index == activeIdx)
+                                    let isUpcoming = (isIntro && index == 0)
                                     let isPast = (activeIdx != nil && index < activeIdx!)
                                     
                                     Button {
@@ -262,24 +328,27 @@ public struct AudioPlayerView: View {
                                                 }
                                                 .foregroundStyle(
                                                     LinearGradient(
-                                                        colors: DevotionalDeity.detect(track: playback.currentTrack) != nil ? [.white, Color.orange] : [.white, Color.purple],
+                                                        colors: isDevotional ? [.white, Color.orange] : [.white, Color.purple],
                                                         startPoint: .top,
                                                         endPoint: .bottom
                                                     )
                                                 )
                                                 .transition(.scale.combined(with: .opacity))
+                                            } else if isUpcoming {
+                                                Circle()
+                                                    .fill(isDevotional ? Color.orange.opacity(0.8) : Color.purple.opacity(0.8))
+                                                    .frame(width: 6, height: 6)
                                             }
                                             
                                             Text(line.text)
-                                                .font(.system(size: isCurrent ? 25 : 19, weight: isCurrent ? .bold : .medium, design: .rounded))
-                                                .foregroundStyle(isCurrent ? Color.white : (isPast ? Color.white.opacity(0.60) : Color.white.opacity(0.35)))
+                                                .font(.system(size: isCurrent ? 25 : (isUpcoming ? 22 : 19), weight: (isCurrent || isUpcoming) ? .bold : .medium, design: .rounded))
+                                                .foregroundStyle(isCurrent ? Color.white : (isUpcoming ? Color.white.opacity(0.85) : (isPast ? Color.white.opacity(0.60) : Color.white.opacity(0.35))))
                                                 .multilineTextAlignment(.leading)
                                         }
                                         .padding(.vertical, 8)
                                         .padding(.horizontal, 16)
                                         .background {
                                             if isCurrent {
-                                                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                                     .fill(
                                                         LinearGradient(
@@ -318,10 +387,17 @@ public struct AudioPlayerView: View {
                                                     .shadow(color: (isDevotional ? Color.orange : Color.purple).opacity(0.35), radius: 14, x: 0, y: 4)
                                                     .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
                                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                            } else if isUpcoming {
+                                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                    .fill((isDevotional ? Color.orange : Color.purple).opacity(0.08))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                            .stroke((isDevotional ? Color.orange : Color.purple).opacity(0.35), lineWidth: 1)
+                                                    )
                                             }
                                         }
-                                        .scaleEffect(isCurrent ? 1.02 : 0.97)
-                                        .blur(radius: isCurrent ? 0 : (isPast ? 0.2 : 0.45))
+                                        .scaleEffect(isCurrent ? 1.02 : (isUpcoming ? 1.00 : 0.97))
+                                        .blur(radius: isCurrent ? 0 : (isUpcoming ? 0 : (isPast ? 0.2 : 0.45)))
                                         .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isCurrent)
                                     }
                                     .buttonStyle(.plain)
@@ -344,9 +420,13 @@ public struct AudioPlayerView: View {
                             )
                         )
                         .onAppear {
-                            let i = playback.currentLyricIndex
-                            if i >= 0, i < lyrics.syncedLines.count {
-                                proxy.scrollTo(lyrics.syncedLines[i].id, anchor: .center)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                let i = playback.currentLyricIndex
+                                if i >= 0, i < lyrics.syncedLines.count {
+                                    proxy.scrollTo(lyrics.syncedLines[i].id, anchor: .center)
+                                } else if let first = lyrics.syncedLines.first {
+                                    proxy.scrollTo(first.id, anchor: .top)
+                                }
                             }
                         }
                         .onChange(of: playback.currentLyricIndex) { _, newIndex in

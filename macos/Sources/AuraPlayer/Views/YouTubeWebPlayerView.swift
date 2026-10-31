@@ -87,6 +87,12 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
         <body>
           <div id="ytplayer"></div>
           <script>
+            // Prevent background timer throttling by macOS WebKit when in Music or Lyrics tab
+            try {
+              Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+              Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+            } catch (e) {}
+
             var player;
             var isReady = false;
             var timeInterval = null;
