@@ -33,16 +33,17 @@ public struct SharedPlaylistPayload: Codable, Sendable {
 
 public enum PlatformShareService {
     public static func createShareUrl(name: String, tracks: [MediaTrack]) -> String {
+        let exportTracks = Array(tracks.prefix(40))
         let payload = SharedPlaylistPayload(
             type: "playlist",
             name: name,
-            tracks: tracks.map {
+            tracks: exportTracks.map {
                 SharedTrackPayload(
                     title: $0.title,
                     artist: $0.artist,
                     yt: $0.youtubeId,
-                    d: $0.duration,
-                    art: $0.thumbnailURL
+                    d: round($0.duration),
+                    art: $0.youtubeId == nil ? $0.thumbnailURL : nil
                 )
             }
         )
@@ -63,8 +64,8 @@ public enum PlatformShareService {
                     title: track.title,
                     artist: track.artist,
                     yt: track.youtubeId,
-                    d: track.duration,
-                    art: track.thumbnailURL
+                    d: round(track.duration),
+                    art: track.youtubeId == nil ? track.thumbnailURL : nil
                 )
             ]
         )

@@ -588,16 +588,17 @@ object PlatformImportService {
     }
 
     fun createShareUrl(name: String, tracks: List<MediaTrack>): String {
+        val exportTracks = tracks.take(40)
         val payload = SharedPlaylistPayload(
             type = "playlist",
             name = name,
-            tracks = tracks.map {
+            tracks = exportTracks.map {
                 SharedTrackPayload(
                     title = it.title,
                     artist = it.artist,
                     yt = it.youtubeId,
-                    d = it.duration,
-                    art = it.thumbnailURL
+                    d = Math.round(it.duration).toDouble(),
+                    art = if (it.youtubeId == null) it.thumbnailURL else null
                 )
             }
         )
@@ -615,8 +616,8 @@ object PlatformImportService {
                     title = track.title,
                     artist = track.artist,
                     yt = track.youtubeId,
-                    d = track.duration,
-                    art = track.thumbnailURL
+                    d = Math.round(track.duration).toDouble(),
+                    art = if (track.youtubeId == null) track.thumbnailURL else null
                 )
             )
         )

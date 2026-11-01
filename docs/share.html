@@ -441,24 +441,78 @@
   <div class="toast" id="toast">Copied to clipboard!</div>
 
   <script>
-    // Universal URL-safe Base64 decoder with UTF-8 support
+    // Universal URL-safe Base64 decoder with UTF-8 support and truncated recovery
     function decodePayload(b64) {
+      if (!b64 || typeof b64 !== "string") return null;
       try {
-        let clean = b64.replace(/-/g, '+').replace(/_/g, '/');
+        let raw = b64.trim();
+        // 1. Convert spaces back to + (URLSearchParams and URL decoding turn + into space)
+        raw = raw.replace(/\s+/g, "+");
+        // 2. Convert URL-safe base64 to standard base64
+        let clean = raw.replace(/-/g, "+").replace(/_/g, "/");
+        // 3. Strip any trailing non-base64 characters
+        clean = clean.replace(/[^A-Za-z0-9+/=]/g, "");
+        // 4. Fix padding
         while (clean.length % 4 !== 0) {
-          clean += '=';
+          clean += "=";
         }
         const binary = atob(clean);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
           bytes[i] = binary.charCodeAt(i);
         }
-        const decoded = new TextDecoder('utf-8').decode(bytes);
+        const decoded = new TextDecoder("utf-8").decode(bytes);
         return JSON.parse(decoded);
       } catch (e) {
-        console.error("Failed to decode payload", e);
+        console.warn("Direct parse failed, attempting partial/recovery parsing", e);
+        try {
+          let raw = b64.trim().replace(/\s+/g, "+").replace(/-/g, "+").replace(/_/g, "/");
+          raw = raw.replace(/[^A-Za-z0-9+/]/g, "");
+          const validLen = raw.length - (raw.length % 4);
+          let sub = raw.substring(0, validLen);
+          while (sub.length % 4 !== 0) { sub += "="; }
+          const binary = atob(sub);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          let text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+          if (text.includes('"tracks":[')) {
+            const lastObjEnd = text.lastIndexOf("}");
+            if (lastObjEnd > 0) {
+              const repaired = text.substring(0, lastObjEnd + 1) + "]}";
+              return JSON.parse(repaired);
+            }
+          }
+        } catch (recoverErr) {
+          console.error("Recovery also failed", recoverErr);
+        }
         return null;
       }
+    }
+
+    function getRawPayloadString() {
+      const href = window.location.href;
+      // 1. Direct regex match on entire URL (handles hash, query, encoded or unencoded)
+      const regex = /[#?&](?:data|song)=([A-Za-z0-9_\-\s%+=]+)/;
+      const match = href.match(regex);
+      if (match && match[1]) {
+        let val = match[1];
+        if (val.includes('%')) {
+          try { val = decodeURIComponent(val); } catch (e) {}
+        }
+        return val;
+      }
+      // 2. URLSearchParams fallback
+      const hashStr = window.location.hash.replace(/^[#?]/, '');
+      const searchStr = window.location.search.replace(/^[#?]/, '');
+      const p1 = new URLSearchParams(hashStr);
+      const p2 = new URLSearchParams(searchStr);
+      let res = p1.get('data') || p1.get('song') || p2.get('data') || p2.get('song');
+      if (res && res.includes('%')) {
+        try { res = decodeURIComponent(res); } catch (e) {}
+      }
+      return res;
     }
 
     function showToast(msg) {
@@ -469,9 +523,7 @@
     }
 
     function renderSharedContent() {
-      const hash = window.location.hash.substring(1);
-      const urlParams = new URLSearchParams(hash || window.location.search);
-      const b64Data = urlParams.get('data') || urlParams.get('song');
+      const b64Data = getRawPayloadString();
 
       const container = document.getElementById('content-container');
 
