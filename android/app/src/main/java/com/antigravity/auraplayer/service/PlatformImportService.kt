@@ -521,24 +521,33 @@ object PlatformImportService {
     // region Aura Player Cross-Sharing
 
     private fun extractBase64Payload(input: String): String? {
-        val regex = Regex("""[#?&](?:data|song)=([A-Za-z0-9_-]+={0,2})""")
+        val regex = Regex("""[#?&](?:data|song)=([A-Za-z0-9_\-%+=]+)""")
         val match = regex.find(input)
         if (match != null) {
-            return match.groupValues[1]
+            var v = match.groupValues[1]
+            if (v.contains('%')) {
+                try { v = java.net.URLDecoder.decode(v, "UTF-8") } catch (_: Throwable) {}
+            }
+            return v
         }
         val trimmed = input.trim()
-        if (trimmed.length > 20 && trimmed.matches(Regex("""^[A-Za-z0-9_-]+={0,2}$"""))) {
+        if (trimmed.length > 20 && trimmed.matches(Regex("""^[A-Za-z0-9_\-%+=]+$"""))) {
             return trimmed
         }
         return null
     }
 
     private fun decodeBase64Safe(b64: String): ByteArray {
-        val normalized = b64.replace('-', '+').replace('_', '/')
-        val padded = when (normalized.length % 4) {
-            2 -> "$normalized=="
-            3 -> "$normalized="
-            else -> normalized
+        var clean = b64.trim().replace('-', '+').replace('_', '/')
+        clean = clean.replace(Regex("""[^A-Za-z0-9+/=]"""), "")
+        val validLen = clean.length - (clean.length % 4)
+        if (validLen != clean.length) {
+            clean = clean.substring(0, validLen)
+        }
+        val padded = when (clean.length % 4) {
+            2 -> "$clean=="
+            3 -> "$clean="
+            else -> clean
         }
         return try {
             java.util.Base64.getDecoder().decode(padded)
@@ -558,13 +567,68 @@ object PlatformImportService {
         }
     }
 
+    private fun recoverTruncatedPayload(jsonStr: String): SharedPlaylistPayload? {
+        // 1. Try closing tracks array at last complete track closing brace
+        val tracksIdx = jsonStr.indexOf("\"tracks\":[")
+        if (tracksIdx >= 0) {
+            val sub = jsonStr.substring(tracksIdx)
+            val lastBrace = sub.lastIndexOf('}')
+            if (lastBrace > 0) {
+                val repaired = jsonStr.substring(0, tracksIdx + lastBrace + 1) + "]}"
+                try {
+                    return jsonParser.decodeFromString<SharedPlaylistPayload>(repaired)
+                } catch (_: Throwable) {}
+            }
+        }
+
+        // 2. Regex-salvage any individual complete track objects
+        val trackRegex = Regex("""\{[^{}]*"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"[^{}]*\}""")
+        val salvagedItems = mutableListOf<SharedTrackPayload>()
+        for (m in trackRegex.findAll(jsonStr)) {
+            try {
+                val item = jsonParser.decodeFromString<SharedTrackPayload>(m.value)
+                salvagedItems.add(item)
+            } catch (_: Throwable) {}
+        }
+        if (salvagedItems.isNotEmpty()) {
+            val nameMatch = Regex(""""name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""").find(jsonStr)
+            val name = nameMatch?.groupValues?.get(1) ?: "Shared Playlist"
+            return SharedPlaylistPayload(
+                type = "playlist",
+                name = name,
+                tracks = salvagedItems
+            )
+        }
+
+        return null
+    }
+
     private fun importAuraPlayer(input: String): ImportedPlaylist {
         val b64 = extractBase64Payload(input)
-            ?: throw IllegalArgumentException("Could not find shared playlist code in link")
+        var payload: SharedPlaylistPayload? = null
 
-        val bytes = decodeBase64Safe(b64)
-        val jsonStr = String(bytes, Charsets.UTF_8)
-        val payload = jsonParser.decodeFromString<SharedPlaylistPayload>(jsonStr)
+        if (b64 != null) {
+            try {
+                val bytes = decodeBase64Safe(b64)
+                val jsonStr = String(bytes, Charsets.UTF_8)
+                payload = try {
+                    jsonParser.decodeFromString<SharedPlaylistPayload>(jsonStr)
+                } catch (e: Throwable) {
+                    recoverTruncatedPayload(jsonStr)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Base64 decode failed for Aura Player link: ${e.message}")
+            }
+        }
+
+        // If base64 payload was unparseable or empty, check if input contains text lines of songs
+        if (payload == null || payload.tracks.isEmpty()) {
+            try {
+                return importTextList(input)
+            } catch (_: Throwable) {
+                throw IllegalArgumentException("Could not read shared music. The share link appears truncated or incomplete.")
+            }
+        }
 
         val tracks = payload.tracks.map { item ->
             MediaTrack(

@@ -706,8 +706,20 @@
       const tracks = data.tracks || [];
       const trackCount = tracks.length;
 
-      // Deep link URI for app
-      const appDeepLink = `auraplayer://share?data=${encodeURIComponent(b64Data)}`;
+      // Deep link URI for app: Always re-encode clean, repaired JSON so the app receives a complete payload
+      let cleanB64 = b64Data;
+      try {
+        const cleanJson = JSON.stringify(data);
+        const encoded = new TextEncoder().encode(cleanJson);
+        let binary = '';
+        for (let i = 0; i < encoded.length; i++) {
+          binary += String.fromCharCode(encoded[i]);
+        }
+        cleanB64 = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+      } catch (e) {
+        console.warn("Re-encode failed, using original", e);
+      }
+      const appDeepLink = `auraplayer://share?data=${cleanB64}`;
 
       let tracksHtml = '';
       tracks.forEach((t, i) => {
