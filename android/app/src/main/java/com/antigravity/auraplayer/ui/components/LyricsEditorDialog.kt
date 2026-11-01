@@ -34,6 +34,7 @@ import com.antigravity.auraplayer.service.CustomLyricsStore
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.theme.*
 import kotlinx.coroutines.launch
+import java.util.regex.Pattern
 
 private enum class EditorTab { WRITE, SYNC }
 
@@ -48,6 +49,7 @@ fun LyricsEditorDialog(
     var tab by remember { mutableStateOf(EditorTab.WRITE) }
     var text by remember { mutableStateOf("") }
     var times by remember { mutableStateOf<List<Long?>>(emptyList()) }
+    var lastSyncedLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectedIndex by remember { mutableIntStateOf(0) }
     var hadCustom by remember { mutableStateOf(false) }
 
@@ -69,15 +71,20 @@ fun LyricsEditorDialog(
             hadCustom = true
             text = existing.lines.joinToString("\n")
             times = existing.timesMs
+            lastSyncedLines = existing.lines
         } else {
             val plain = playbackManager.plainLyrics.value
             val synced = playbackManager.syncedLyrics.value
             if (!synced.isNullOrEmpty()) {
-                text = synced.joinToString("\n") { it.text }
+                val sLines = synced.map { it.text }
+                text = sLines.joinToString("\n")
                 times = synced.map { it.timeMs }
+                lastSyncedLines = sLines
             } else if (!plain.isNullOrBlank()) {
                 text = plain
-                times = emptyList()
+                val pLines = plain.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                times = List(pLines.size) { null }
+                lastSyncedLines = pLines
             }
         }
     }
@@ -88,16 +95,132 @@ fun LyricsEditorDialog(
         }
     }
 
-    fun prepareSync() {
-        if (times.size != lines.size) {
-            val newTimes = MutableList<Long?>(lines.size) { null }
-            for (i in 0 until minOf(times.size, lines.size)) {
-                newTimes[i] = times[i]
+    fun parseLrcOrPlain(rawText: String): Pair<List<String>, List<Long?>> {
+        val rawLines = rawText.lines()
+        val tagPattern = Pattern.compile("\\[(\\d{1,3}):(\\d{1,2}(?:[.:]\\d{1,3})?)\\]")
+        val linesOut = mutableListOf<String>()
+        val timesOut = mutableListOf<Long?>()
+        var taggedCount = 0
+        var plainCount = 0
+
+        for (raw in rawLines) {
+            val matcher = tagPattern.matcher(raw)
+            val hasTag = matcher.find()
+            val stripped = raw.replace(Regex("\\[(\\d{1,3}):(\\d{1,2}(?:[.:]\\d{1,3})?)\\]"), "").trim()
+
+            if (!hasTag) {
+                if (raw.matches(Regex("^\\s*\\[[a-zA-Z]{2,}:.*\\].*"))) continue
+                val t = raw.trim()
+                if (t.isEmpty()) continue
+                linesOut.add(t)
+                timesOut.add(null)
+                plainCount++
+            } else if (stripped.isNotEmpty()) {
+                val mReset = tagPattern.matcher(raw)
+                while (mReset.find()) {
+                    val mins = mReset.group(1)?.toLongOrNull() ?: 0L
+                    val secsStr = mReset.group(2)?.replace(':', '.') ?: "0"
+                    val secs = secsStr.toDoubleOrNull() ?: 0.0
+                    val totalMs = (mins * 60 * 1000L) + (secs * 1000L).toLong()
+                    linesOut.add(stripped)
+                    timesOut.add(totalMs)
+                    taggedCount++
+                }
             }
-            times = newTimes
         }
-        val firstUnset = times.indexOfFirst { it == null }
-        selectedIndex = if (firstUnset >= 0) firstUnset else 0
+
+        if (taggedCount > 0 && taggedCount >= plainCount) {
+            val sorted = linesOut.zip(timesOut).sortedBy { it.second ?: Long.MAX_VALUE }
+            return Pair(sorted.map { it.first }, sorted.map { it.second })
+        }
+        val clean = rawText.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        return Pair(clean, List(clean.size) { null })
+    }
+
+    fun alignTimes(oldLines: List<String>, oldTimes: List<Long?>, newLines: List<String>): List<Long?> {
+        val m = oldLines.size
+        val n = newLines.size
+        if (n == 0) return emptyList()
+        if (m == 0) return List(n) { null }
+
+        val dp = Array(m + 1) { IntArray(n + 1) }
+        for (i in 1..m) {
+            for (j in 1..n) {
+                dp[i][j] = if (oldLines[i - 1] == newLines[j - 1]) {
+                    dp[i - 1][j - 1] + 1
+                } else {
+                    maxOf(dp[i - 1][j], dp[i][j - 1])
+                }
+            }
+        }
+
+        val matchedOld = IntArray(n) { -1 }
+        var i = m
+        var j = n
+        while (i > 0 && j > 0) {
+            if (oldLines[i - 1] == newLines[j - 1]) {
+                matchedOld[j - 1] = i - 1
+                i--
+                j--
+            } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+                i--
+            } else {
+                j--
+            }
+        }
+
+        val result = MutableList<Long?>(n) { null }
+        for (newIdx in 0 until n) {
+            val oldIdx = matchedOld[newIdx]
+            if (oldIdx in oldTimes.indices) {
+                result[newIdx] = oldTimes[oldIdx]
+            }
+        }
+
+        var lastMatchedNew = -1
+        var lastMatchedOld = -1
+        for (newIdx in 0..n) {
+            val isAnchor = (newIdx == n) || (matchedOld[newIdx] >= 0)
+            if (isAnchor) {
+                val curMatchedOld = if (newIdx == n) m else matchedOld[newIdx]
+                val oldGap = (curMatchedOld - 1) - (lastMatchedOld + 1) + 1
+                val newGap = (newIdx - 1) - (lastMatchedNew + 1) + 1
+                if (oldGap == 1 && newGap == 1) {
+                    val targetOld = lastMatchedOld + 1
+                    val targetNew = lastMatchedNew + 1
+                    if (targetOld in oldTimes.indices) {
+                        result[targetNew] = oldTimes[targetOld]
+                    }
+                }
+                lastMatchedNew = newIdx
+                lastMatchedOld = curMatchedOld
+            }
+        }
+
+        return result
+    }
+
+    fun prepareSync() {
+        val (parsedLines, parsedTimes) = parseLrcOrPlain(text)
+        val aligned = alignTimes(lastSyncedLines, times, parsedLines).toMutableList()
+        for (idx in parsedTimes.indices) {
+            val pt = parsedTimes[idx]
+            if (pt != null && idx < aligned.size) {
+                aligned[idx] = pt
+            }
+        }
+
+        times = aligned
+        lastSyncedLines = parsedLines
+
+        if (parsedTimes.any { it != null }) {
+            text = parsedLines.joinToString("\n")
+        }
+
+        if (selectedIndex >= parsedLines.size || (selectedIndex in times.indices && times[selectedIndex] != null)) {
+            val firstUnset = times.indexOfFirst { it == null }
+            selectedIndex = if (firstUnset >= 0) firstUnset else selectedIndex.coerceIn(0, (parsedLines.size - 1).coerceAtLeast(0))
+        }
     }
 
     fun formatTime(ms: Long): String {
@@ -114,6 +237,7 @@ fun LyricsEditorDialog(
         if (selectedIndex in updated.indices) {
             updated[selectedIndex] = currentMs
             times = updated
+            lastSyncedLines = lines
             if (selectedIndex + 1 < lines.size) {
                 selectedIndex += 1
                 scope.launch {
@@ -243,6 +367,13 @@ fun LyricsEditorDialog(
                                         val clip = clipboardManager.getText()?.text ?: ""
                                         if (clip.isNotEmpty()) {
                                             text = clip
+                                            val (pLines, pTimes) = parseLrcOrPlain(clip)
+                                            if (pTimes.any { it != null }) {
+                                                times = pTimes
+                                                lastSyncedLines = pLines
+                                                text = pLines.joinToString("\n")
+                                                selectedIndex = 0
+                                            }
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.12f)),
@@ -393,6 +524,7 @@ fun LyricsEditorDialog(
                                                         if (index in updated.indices) {
                                                             updated[index] = null
                                                             times = updated
+                                                            lastSyncedLines = lines
                                                         }
                                                     },
                                                     modifier = Modifier.size(24.dp)
@@ -439,7 +571,8 @@ fun LyricsEditorDialog(
                         }
                         Button(
                             onClick = {
-                                CustomLyricsStore.saveLyrics(track.title, track.artist, lines, times)
+                                prepareSync()
+                                CustomLyricsStore.saveLyrics(track.title, track.artist, lastSyncedLines, times)
                                 playbackManager.reloadLyrics()
                                 onDismiss()
                             },

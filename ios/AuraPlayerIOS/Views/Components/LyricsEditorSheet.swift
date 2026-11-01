@@ -12,6 +12,7 @@ public struct LyricsEditorSheet: View {
     @State private var step: Step = .write
     @State private var text: String = ""
     @State private var times: [Double?] = []
+    @State private var lastSyncedLines: [String] = []
     @State private var selected: Int = 0
     @State private var hadCustom: Bool = false
     @FocusState private var editing: Bool
@@ -270,14 +271,21 @@ public struct LyricsEditorSheet: View {
             hadCustom = true
             text = custom.lines.joined(separator: "\n")
             times = custom.times
+            lastSyncedLines = custom.lines
         } else if let online = playback.lyrics {
             // Start from the lyrics found online, so wrong lines or timing can be fixed
             if online.isSynced {
                 text = online.syncedLines.map(\.text).joined(separator: "\n")
                 times = online.syncedLines.map { Optional($0.time) }
+                lastSyncedLines = online.syncedLines.map(\.text)
             } else if let plain = online.plainLyrics {
                 text = plain
+                lastSyncedLines = lines
+                times = Array(repeating: nil, count: lines.count)
             }
+        } else {
+            lastSyncedLines = lines
+            times = Array(repeating: nil, count: lines.count)
         }
         step = lines.isEmpty ? .write : step
         if lines.isEmpty { editing = true }
@@ -300,14 +308,96 @@ public struct LyricsEditorSheet: View {
         let entry = CustomLyricsStore.parse(pasted)
         text = entry.lines.joined(separator: "\n")
         times = entry.times
+        lastSyncedLines = entry.lines
         selected = 0
     }
 
-    /// Times belong to lines by position, so if lines were added or removed they no longer match: start the timing again
+    /// Preserves existing timestamps even when lines are inserted, deleted, or edited in the Write tab
+    private func alignTimes(oldLines: [String], oldTimes: [Double?], newLines: [String]) -> [Double?] {
+        let m = oldLines.count
+        let n = newLines.count
+        guard n > 0 else { return [] }
+        guard m > 0 else { return Array(repeating: nil, count: n) }
+        
+        // 1. Longest Common Subsequence of exact matching lines
+        var dp = Array(repeating: Array(repeating: 0, count: n + 1), count: m + 1)
+        for i in 1...m {
+            for j in 1...n {
+                if oldLines[i - 1] == newLines[j - 1] {
+                    dp[i][j] = dp[i - 1][j - 1] + 1
+                } else {
+                    dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+                }
+            }
+        }
+        
+        var matchedOld = Array(repeating: -1, count: n)
+        var i = m, j = n
+        while i > 0 && j > 0 {
+            if oldLines[i - 1] == newLines[j - 1] {
+                matchedOld[j - 1] = i - 1
+                i -= 1
+                j -= 1
+            } else if dp[i - 1][j] >= dp[i][j - 1] {
+                i -= 1
+            } else {
+                j -= 1
+            }
+        }
+        
+        var result: [Double?] = Array(repeating: nil, count: n)
+        for newIdx in 0..<n {
+            let oldIdx = matchedOld[newIdx]
+            if oldIdx >= 0 && oldIdx < oldTimes.count {
+                result[newIdx] = oldTimes[oldIdx]
+            }
+        }
+        
+        // Handle edited lines / typos between matched anchors
+        var lastMatchedNew = -1
+        var lastMatchedOld = -1
+        for newIdx in 0...n {
+            let isAnchor = (newIdx == n) || (matchedOld[newIdx] >= 0)
+            if isAnchor {
+                let curMatchedOld = (newIdx == n) ? m : matchedOld[newIdx]
+                let oldGap = (curMatchedOld - 1) - (lastMatchedOld + 1) + 1
+                let newGap = (newIdx - 1) - (lastMatchedNew + 1) + 1
+                if oldGap == 1 && newGap == 1 {
+                    let targetOld = lastMatchedOld + 1
+                    let targetNew = lastMatchedNew + 1
+                    if targetOld >= 0 && targetOld < oldTimes.count {
+                        result[targetNew] = oldTimes[targetOld]
+                    }
+                }
+                lastMatchedNew = newIdx
+                lastMatchedOld = curMatchedOld
+            }
+        }
+        
+        return result
+    }
+
+    /// Prepares sync lines and preserves all previously synced timestamps
     private func prepareSync() {
-        let count = lines.count
-        if times.count != count { times = Array(repeating: nil, count: count) }
-        selected = times.firstIndex(where: { $0 == nil }) ?? 0
+        let parsed = CustomLyricsStore.parse(text)
+        let currentLines = parsed.lines
+        let parsedTimes = parsed.times
+        
+        var aligned = alignTimes(oldLines: lastSyncedLines, oldTimes: times, newLines: currentLines)
+        for (idx, pt) in parsedTimes.enumerated() where pt != nil && idx < aligned.count {
+            aligned[idx] = pt
+        }
+        
+        times = aligned
+        lastSyncedLines = currentLines
+        
+        if parsedTimes.contains(where: { $0 != nil }) {
+            text = currentLines.joined(separator: "\n")
+        }
+        
+        if selected >= currentLines.count || (times.indices.contains(selected) && times[selected] != nil) {
+            selected = times.firstIndex(where: { $0 == nil }) ?? min(selected, max(0, currentLines.count - 1))
+        }
     }
 
     private func markLine() {
@@ -315,6 +405,7 @@ public struct LyricsEditorSheet: View {
         Haptics.medium()
         while times.count < lines.count { times.append(nil) }
         times[selected] = playback.currentTime
+        lastSyncedLines = lines
         selected = min(selected + 1, lines.count)
     }
 
@@ -324,6 +415,7 @@ public struct LyricsEditorSheet: View {
         guard target >= 0, target < times.count else { return }
         let was = times[target]
         times[target] = nil
+        lastSyncedLines = lines
         selected = target
         if let was { playback.seek(to: max(0, was - 3)) }
     }
@@ -337,11 +429,8 @@ public struct LyricsEditorSheet: View {
     }
 
     private func save() {
-        let all = lines
-        var saved = times
-        if saved.count < all.count { saved += Array(repeating: nil, count: all.count - saved.count) }
-        saved = Array(saved.prefix(all.count))
-        CustomLyricsStore.shared.save(.init(lines: all, times: saved), for: track)
+        prepareSync()
+        CustomLyricsStore.shared.save(.init(lines: lastSyncedLines, times: times), for: track)
         playback.reloadLyrics()
         Haptics.success()
         dismiss()
