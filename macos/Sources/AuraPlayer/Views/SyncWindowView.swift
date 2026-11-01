@@ -27,6 +27,30 @@ struct SyncWindowView: View {
                 .padding(.vertical, 10)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
             
+            if let ip = SyncServer.getLocalIPAddress() {
+                HStack(spacing: 8) {
+                    Text("Mac IP:")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Text("\(ip):\(server.port.rawValue)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.purple)
+                        .textSelection(.enabled)
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(ip, forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy IP address")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.purple.opacity(0.12)))
+            }
+            
             HStack(spacing: 10) {
                 Button("Copy Code") {
                     NSPasteboard.general.clearContents()

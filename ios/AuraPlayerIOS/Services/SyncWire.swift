@@ -10,6 +10,7 @@ import CryptoKit
 /// Every request is signed with the pairing code shown on the Mac, so other devices on the network can't read or change the library.
 enum SyncWire {
     static let serviceType = "_auraplayer._tcp"
+    static let defaultPort: NWEndpoint.Port = 51822
     static let maxBody = 64 * 1024 * 1024
     static let maxClockSkew: Double = 300
     

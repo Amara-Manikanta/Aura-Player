@@ -10,12 +10,14 @@ import AppKit
 @Observable
 public final class SyncServer {
     public static let shared = SyncServer()
+    public static let defaultPort = SyncWire.defaultPort
     
     public var isRunning = false
     public var status = "Starting…"
     public var lastSync: Date?
     public var lastDevice: String?
     public private(set) var code: String
+    public private(set) var port: NWEndpoint.Port = defaultPort
     
     @ObservationIgnored private var listener: NWListener?
     @ObservationIgnored private weak var store: PlaylistStore?
@@ -49,11 +51,40 @@ public final class SyncServer {
     
     // MARK: - Listening
     
+    public static func getLocalIPAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let interface = ptr.pointee
+            let addrFamily = interface.ifa_addr.pointee.sa_family
+            if addrFamily == UInt8(AF_INET) {
+                let name = String(cString: interface.ifa_name)
+                if name == "en0" || name.hasPrefix("en") {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                                &hostname, socklen_t(hostname.count),
+                                nil, socklen_t(0), NI_NUMERICHOST)
+                    address = String(cString: hostname)
+                    if name == "en0" { break }
+                }
+            }
+        }
+        freeifaddrs(ifaddr)
+        return address
+    }
+    
     public func start(store: PlaylistStore) {
         self.store = store
         guard listener == nil else { return }
         do {
-            let listener = try NWListener(using: .tcp)
+            let listener: NWListener
+            if let fixed = try? NWListener(using: .tcp, on: Self.defaultPort) {
+                listener = fixed
+                self.port = Self.defaultPort
+            } else {
+                listener = try NWListener(using: .tcp)
+            }
             listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: SyncWire.serviceType)
             listener.stateUpdateHandler = { [weak self] state in
                 Task { @MainActor in self?.listenerChanged(state) }
@@ -63,25 +94,36 @@ public final class SyncServer {
             }
             listener.start(queue: .main)
             self.listener = listener
+            AppLog.log("sync", "SyncServer started on port \(self.port.rawValue) service=\(SyncWire.serviceType)")
         } catch {
             status = "Couldn't start: \(error.localizedDescription)"
+            AppLog.log("sync", "SyncServer failed to start: \(error.localizedDescription)")
         }
     }
     
     private func listenerChanged(_ state: NWListener.State) {
         switch state {
-        case .ready: isRunning = true; status = "Ready: your iPhone can sync now"
+        case .ready:
+            isRunning = true
+            if let actualPort = listener?.port { self.port = actualPort }
+            let ip = Self.getLocalIPAddress() ?? "Wi-Fi"
+            status = "Ready • Mac IP: \(ip):\(self.port.rawValue)"
+            AppLog.log("sync", "SyncServer ready on \(ip):\(self.port.rawValue)")
         case .failed(let error):
             isRunning = false
             status = "Stopped: \(error.localizedDescription)"
+            AppLog.log("sync", "SyncServer error: \(error.localizedDescription)")
             listener?.cancel()
             listener = nil
-        case .cancelled: isRunning = false
+        case .cancelled:
+            isRunning = false
+            AppLog.log("sync", "SyncServer cancelled")
         default: break
         }
     }
     
     private func accept(_ connection: NWConnection) {
+        AppLog.log("sync", "accepted connection from \(connection.endpoint)")
         let channel = SyncChannel(connection)
         Task { await serve(channel) }
     }

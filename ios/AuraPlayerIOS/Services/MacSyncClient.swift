@@ -13,9 +13,11 @@ public final class MacSyncClient: ObservableObject {
     @Published public private(set) var lastResult: String?
     @Published public private(set) var lastSync: Date?
     @Published public private(set) var isPaired: Bool
+    @Published public private(set) var macIP: String?
     
     private static let codeKey = "macSyncCode"
     private static let lastKey = "macLastSync"
+    private static let ipKey = "macSyncIP"
     private var code: String? {
         didSet { isPaired = code != nil }
     }
@@ -25,6 +27,7 @@ public final class MacSyncClient: ObservableObject {
         let saved = UserDefaults.standard.string(forKey: Self.codeKey)
         code = saved
         isPaired = saved != nil
+        macIP = UserDefaults.standard.string(forKey: Self.ipKey)
         let t = UserDefaults.standard.double(forKey: Self.lastKey)
         if t > 0 { lastSync = Date(timeIntervalSince1970: t) }
     }
@@ -33,7 +36,7 @@ public final class MacSyncClient: ObservableObject {
         case notFound, wrongCode, other(String)
         var errorDescription: String? {
             switch self {
-            case .notFound: return "Couldn't find your Mac. Open Aura Player on the Mac, and make sure both are on the same Wi-Fi."
+            case .notFound: return "Couldn't find your Mac. Check that Aura Player is open on your Mac, both devices are on the same Wi-Fi, and Local Network permission is enabled."
             case .wrongCode: return "That code isn't right. Check the code in the Mac app (Sync ▸ iPhone Sync)."
             case .other(let m): return m
             }
@@ -42,22 +45,31 @@ public final class MacSyncClient: ObservableObject {
     
     // MARK: - Public
     
-    /// First time: remembers the code, then syncs
+    /// First time: remembers the code and optional IP, then syncs
     @discardableResult
-    public func pair(code: String) async -> String {
+    public func pair(code: String, ip: String? = nil) async -> String {
         let trimmed = code.filter(\.isNumber)
         guard trimmed.count == 6 else { return "The code is 6 digits." }
+        if let ip = ip?.trimmingCharacters(in: .whitespacesAndNewlines), !ip.isEmpty {
+            UserDefaults.standard.set(ip, forKey: Self.ipKey)
+            self.macIP = ip
+        }
         let previous = self.code
         self.code = trimmed
         let result = await syncNow()
-        if lastResult == SyncError.wrongCode.errorDescription { self.code = previous }   // don't keep a wrong code
-        else { UserDefaults.standard.set(trimmed, forKey: Self.codeKey) }
+        if lastResult == SyncError.wrongCode.errorDescription {
+            self.code = previous
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: Self.codeKey)
+        }
         return result
     }
     
     public func forget() {
         code = nil
+        macIP = nil
         UserDefaults.standard.removeObject(forKey: Self.codeKey)
+        UserDefaults.standard.removeObject(forKey: Self.ipKey)
         lastResult = nil
     }
     
@@ -82,7 +94,18 @@ public final class MacSyncClient: ObservableObject {
             var summary: String?
             var failure: Error?
             for endpoint in endpoints {
-                do { summary = try await sync(with: endpoint, code: code); break }
+                do {
+                    summary = try await sync(with: endpoint, code: code)
+                    // If connection succeeded via hostPort, remember it
+                    if case .hostPort(let host, _) = endpoint {
+                        let h = "\(host)"
+                        if h != "127.0.0.1" && h != "localhost" {
+                            UserDefaults.standard.set(h, forKey: Self.ipKey)
+                            self.macIP = h
+                        }
+                    }
+                    break
+                }
                 catch SyncError.wrongCode { wrongCode = true }
                 catch { failure = error }
             }
@@ -101,8 +124,21 @@ public final class MacSyncClient: ObservableObject {
     
     // MARK: - Finding the Mac
     
-    private func findMacs(timeout: TimeInterval = 4) async -> [NWEndpoint] {
-        await withCheckedContinuation { (cont: CheckedContinuation<[NWEndpoint], Never>) in
+    private func findMacs(timeout: TimeInterval = 3) async -> [NWEndpoint] {
+        var endpoints: [NWEndpoint] = []
+        
+        // 1. Direct IP if specified or saved from previous sync
+        if let savedIP = UserDefaults.standard.string(forKey: Self.ipKey), !savedIP.isEmpty {
+            endpoints.append(NWEndpoint.hostPort(host: NWEndpoint.Host(savedIP), port: SyncWire.defaultPort))
+        }
+        
+        // 2. In iOS Simulator, probe loopback to reach host Mac directly
+        #if targetEnvironment(simulator)
+        endpoints.append(NWEndpoint.hostPort(host: "127.0.0.1", port: SyncWire.defaultPort))
+        #endif
+        
+        // 3. Discover via Bonjour
+        let bonjourEndpoints = await withCheckedContinuation { (cont: CheckedContinuation<[NWEndpoint], Never>) in
             final class State: @unchecked Sendable { var done = false; var found: [NWEndpoint] = [] }
             let state = State()
             let browser = NWBrowser(for: .bonjour(type: SyncWire.serviceType, domain: nil), using: .tcp)
@@ -116,8 +152,7 @@ public final class MacSyncClient: ObservableObject {
             }
             browser.browseResultsChangedHandler = { results, _ in
                 state.found = results.map(\.endpoint)
-                // found one: give a moment for others, then go
-                if !results.isEmpty { queue.asyncAfter(deadline: .now() + 0.6) { finish() } }
+                if !results.isEmpty { queue.asyncAfter(deadline: .now() + 0.5) { finish() } }
             }
             browser.stateUpdateHandler = { newState in
                 if case .failed = newState { finish() }
@@ -125,6 +160,9 @@ public final class MacSyncClient: ObservableObject {
             browser.start(queue: queue)
             queue.asyncAfter(deadline: .now() + timeout) { finish() }
         }
+        
+        endpoints.append(contentsOf: bonjourEndpoints)
+        return endpoints
     }
     
     // MARK: - One sync

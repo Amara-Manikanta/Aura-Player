@@ -15,6 +15,7 @@ public struct SettingsView: View {
     @ObservedObject private var macSync = MacSyncClient.shared
     @State private var showPairing = false
     @State private var pairingCode = ""
+    @State private var pairingIP = ""
     
     public init(playlistStore: PlaylistStore) {
         self.playlistStore = playlistStore
@@ -202,6 +203,7 @@ public struct SettingsView: View {
                                         Task { statusToast = await macSync.syncNow() }
                                     } else {
                                         pairingCode = ""
+                                        pairingIP = macSync.macIP ?? ""
                                         showPairing = true
                                     }
                                 } label: {
@@ -347,14 +349,16 @@ public struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { backupURL = await playlistStore.createBackupFile() }
             .alert("Pair with Mac", isPresented: $showPairing) {
-                TextField("6-digit code", text: $pairingCode)
+                TextField("6-digit code (e.g. 007238)", text: $pairingCode)
                     .keyboardType(.numberPad)
+                TextField("Mac IP (Optional, e.g. 192.168.29.65)", text: $pairingIP)
+                    .keyboardType(.numbersAndPunctuation)
                 Button("Sync") {
-                    Task { statusToast = await macSync.pair(code: pairingCode) }
+                    Task { statusToast = await macSync.pair(code: pairingCode, ip: pairingIP.isEmpty ? nil : pairingIP) }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Open Aura Player on your Mac and choose Sync ▸ iPhone Sync to see the code. Both need to be on the same Wi-Fi.")
+                Text("Open Aura Player on your Mac and choose Sync ▸ iPhone Sync to see your pairing code and Mac IP address.")
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
