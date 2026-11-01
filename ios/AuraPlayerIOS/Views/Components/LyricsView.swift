@@ -55,9 +55,10 @@ public struct LyricsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let lyrics = playback.lyrics, lyrics.isSynced {
+                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: .center, spacing: compact ? 10 : 16) {
+                        LazyVStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : 16) {
                             ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
                                 let isActive = (index == playback.currentLyricIndex)
                                 let isPast = (playback.currentLyricIndex >= 0 && index < playback.currentLyricIndex)
@@ -94,13 +95,13 @@ public struct LyricsView: View {
                                                     ? Color.white
                                                     : (isPast ? AuraTheme.textSecondary.opacity(0.60) : AuraTheme.textTertiary.opacity(0.75))
                                             )
-                                            .multilineTextAlignment(.center)
+                                            .multilineTextAlignment(isDevotional ? .leading : .center)
                                             // long lines wrap inside the screen instead of widening the whole player
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(.horizontal, compact ? 16 : 22)
                                     .padding(.vertical, compact ? 8 : 12)
-                                    .frame(maxWidth: .infinity)
+                                    .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                                     .background {
                                         if isActive {
                                             let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
@@ -152,7 +153,8 @@ public struct LyricsView: View {
                                 .id(line.id)
                             }
                         }
-                        .padding(.horizontal, compact ? 14 : 20)
+                        .padding(.leading, isDevotional ? 12 : (compact ? 14 : 20))
+                        .padding(.trailing, isDevotional ? (compact ? 95 : 135) : (compact ? 14 : 20))
                         .padding(.vertical, compact ? 16 : 40)
                         .frame(maxWidth: .infinity)
                     }
@@ -182,14 +184,17 @@ public struct LyricsView: View {
                     }
                 }
             } else if let plain = playback.lyrics?.plainLyrics, !plain.isEmpty {
+                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollView(showsIndicators: false) {
                     Text(plain)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(AuraTheme.textSecondary)
                         .lineSpacing(10)
-                        .multilineTextAlignment(.center)
-                        .padding(24)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .multilineTextAlignment(isDevotional ? .leading : .center)
+                        .padding(.leading, isDevotional ? 16 : 24)
+                        .padding(.trailing, isDevotional ? 135 : 24)
+                        .padding(.vertical, 24)
+                        .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                 }
             } else {
                 VStack(spacing: 12) {

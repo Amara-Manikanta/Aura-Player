@@ -159,11 +159,12 @@ fun LyricsView(
                                 horizontal = if (compact) 12.dp else 18.dp,
                                 vertical = if (compact) 6.dp else 10.dp
                             ),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = if (deity != null) Alignment.CenterStart else Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = if (deity != null) Arrangement.Start else Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             if (isActive && isPlaying) {
                                 Row(
@@ -192,7 +193,7 @@ fun LyricsView(
                                 ),
                                 color = if (isActive) (if (deity != null) Color(0xFFFFFDE7) else Color.White) else Color.White.copy(alpha = alpha),
                                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                textAlign = TextAlign.Center
+                                textAlign = if (deity != null) TextAlign.Start else TextAlign.Center
                             )
                         }
                     }
@@ -204,14 +205,19 @@ fun LyricsView(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(vertical = 40.dp, horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(
+                        top = 40.dp,
+                        bottom = 40.dp,
+                        start = 16.dp,
+                        end = if (deity != null) 135.dp else 16.dp
+                    ),
+                horizontalAlignment = if (deity != null) Alignment.Start else Alignment.CenterHorizontally
             ) {
                 Text(
                     text = plainLyrics,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 28.sp),
                     color = Color.White.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center
+                    textAlign = if (deity != null) TextAlign.Start else TextAlign.Center
                 )
                 if (onAddLyrics != null) {
                     Spacer(modifier = Modifier.height(24.dp))

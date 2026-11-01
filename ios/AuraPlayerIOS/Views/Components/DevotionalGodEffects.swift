@@ -96,7 +96,7 @@ struct DevotionalGodEffectsView: View {
                     HStack {
                         Spacer()
                         AyyappaIdolImageView()
-                            .padding(.trailing, 24)
+                            .padding(.trailing, 14)
                     }
                 }
             }
@@ -220,12 +220,12 @@ struct AyyappaIdolImageView: View {
             Image(uiImage: uiImage)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 240, height: 280)
+                .frame(width: 120, height: 160)
         } else {
             Image("ayyappa_idol")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 240, height: 280)
+                .frame(width: 120, height: 160)
         }
     }
 }

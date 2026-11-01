@@ -405,7 +405,7 @@ public struct AudioPlayerView: View {
                                 }
                             }
                             .padding(.leading, 40)
-                            .padding(.trailing, isDevotional ? 270 : 40)
+                            .padding(.trailing, isDevotional ? 290 : 40)
                             .padding(.vertical, 24)
                         }
                         .mask(
@@ -449,7 +449,7 @@ public struct AudioPlayerView: View {
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.leading, 48)
-                            .padding(.trailing, isDevotional ? 270 : 48)
+                            .padding(.trailing, isDevotional ? 290 : 48)
                             .padding(.vertical, 20)
                     }
                 } else {

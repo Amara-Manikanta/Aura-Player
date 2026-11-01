@@ -19,8 +19,8 @@ mkdir -p "$MACOS_DIR"
 mkdir -p "$RESOURCES_DIR"
 
 # Copy resources
-if [ -f "$DIR/Resources/AppIcon.icns" ]; then
-    cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+if [ -d "$DIR/Resources" ]; then
+    cp -R "$DIR/Resources/"* "$RESOURCES_DIR/" 2>/dev/null || true
 fi
 
 # Copy executable
