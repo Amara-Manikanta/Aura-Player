@@ -190,6 +190,18 @@ public struct LibraryView: View {
                                         }
                                         
                                         Button {
+                                            Haptics.light()
+                                            let text = PlatformShareService.formatWhatsAppPlaylistShare(name: pl.name, tracks: pl.tracks)
+                                            let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                               let rootVC = windowScene.windows.first?.rootViewController {
+                                                rootVC.present(av, animated: true)
+                                            }
+                                        } label: {
+                                            Label("Share Playlist (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+                                        }
+                                        
+                                        Button {
                                             renameText = pl.name
                                             playlistToRename = pl
                                         } label: {
