@@ -198,20 +198,27 @@ public struct SettingsView: View {
                                 .liquidGlass(cornerRadius: 14)
                                 
                                 // Mac: the same playlists, play counts, videos and lyrics on both, over Wi-Fi
-                                Button {
-                                    if macSync.isPaired {
-                                        Task { statusToast = await macSync.syncNow() }
-                                    } else {
-                                        pairingCode = ""
-                                        pairingIP = macSync.macIP ?? ""
-                                        showPairing = true
-                                    }
-                                } label: {
+                                VStack(alignment: .leading, spacing: 12) {
                                     HStack {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Label("Sync with Mac", systemImage: "laptopcomputer.and.iphone")
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 15, weight: .semibold))
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "laptopcomputer.and.iphone")
+                                                    .foregroundColor(AuraTheme.primary)
+                                                    .font(.system(size: 15, weight: .semibold))
+                                                Text("Sync with Mac")
+                                                    .foregroundColor(.white)
+                                                    .font(.system(size: 15, weight: .semibold))
+                                                
+                                                if macSync.isPaired {
+                                                    Text("PAIRED")
+                                                        .font(.system(size: 9, weight: .black))
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(AuraTheme.primary.opacity(0.2))
+                                                        .foregroundColor(AuraTheme.primary)
+                                                        .clipShape(Capsule())
+                                                }
+                                            }
                                             Text(macSyncSubtitle)
                                                 .font(.system(size: 11))
                                                 .foregroundColor(AuraTheme.textTertiary)
@@ -220,22 +227,86 @@ public struct SettingsView: View {
                                         Spacer()
                                         if macSync.isSyncing {
                                             ProgressView().tint(AuraTheme.primary)
-                                        } else {
-                                            Image(systemName: macSync.isPaired ? "arrow.triangle.2.circlepath" : "link")
-                                                .foregroundColor(AuraTheme.primary)
                                         }
                                     }
-                                    .padding(14)
-                                    .liquidGlass(cornerRadius: 14)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(macSync.isSyncing)
-                                .contextMenu {
+                                    
+                                    // Action buttons
                                     if macSync.isPaired {
-                                        Button("Use a Different Code…") { pairingCode = ""; showPairing = true }
-                                        Button("Forget This Mac", role: .destructive) { macSync.forget() }
+                                        HStack(spacing: 8) {
+                                            Button {
+                                                Task { statusToast = await macSync.syncNow() }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                                    Text("Sync Now")
+                                                }
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(.white)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 8)
+                                                .background(AuraTheme.primary)
+                                                .cornerRadius(9)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .disabled(macSync.isSyncing)
+                                            
+                                            Button {
+                                                pairingCode = ""
+                                                pairingIP = macSync.macIP ?? ""
+                                                showPairing = true
+                                            } label: {
+                                                HStack(spacing: 5) {
+                                                    Image(systemName: "key.fill")
+                                                    Text("Enter Code")
+                                                }
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 8)
+                                                .background(Color.white.opacity(0.12))
+                                                .cornerRadius(9)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .disabled(macSync.isSyncing)
+                                            
+                                            Button {
+                                                macSync.forget()
+                                                statusToast = "Unpaired from Mac"
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(AuraTheme.textTertiary)
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.white.opacity(0.08))
+                                                    .cornerRadius(9)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .disabled(macSync.isSyncing)
+                                        }
+                                    } else {
+                                        Button {
+                                            pairingCode = ""
+                                            pairingIP = macSync.macIP ?? ""
+                                            showPairing = true
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "link.badge.plus")
+                                                Text("Enter Pairing Code")
+                                            }
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 9)
+                                            .background(AuraTheme.primary)
+                                            .cornerRadius(9)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(macSync.isSyncing)
                                     }
                                 }
+                                .padding(14)
+                                .liquidGlass(cornerRadius: 14)
                                 
                                 // Apple Music: play counts, Recently Added and new songs from this iPhone's library
                                 Button {

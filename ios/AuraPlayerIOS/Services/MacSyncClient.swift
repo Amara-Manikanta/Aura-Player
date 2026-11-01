@@ -45,14 +45,42 @@ public final class MacSyncClient: ObservableObject {
     
     // MARK: - Public
     
+    private static func parseEndpoint(from raw: String) -> NWEndpoint? {
+        var clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.lowercased().hasPrefix("http://") {
+            clean = String(clean.dropFirst(7))
+        } else if clean.lowercased().hasPrefix("https://") {
+            clean = String(clean.dropFirst(8))
+        }
+        clean = clean.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        guard !clean.isEmpty else { return nil }
+        
+        let parts = clean.split(separator: ":")
+        let hostStr = String(parts[0]).trimmingCharacters(in: .whitespaces)
+        guard !hostStr.isEmpty else { return nil }
+        
+        let portNum: UInt16
+        if parts.count > 1, let p = UInt16(parts[1]) {
+            portNum = p
+        } else {
+            portNum = SyncWire.defaultPort.rawValue
+        }
+        guard let port = NWEndpoint.Port(rawValue: portNum) else { return nil }
+        return NWEndpoint.hostPort(host: NWEndpoint.Host(hostStr), port: port)
+    }
+    
     /// First time: remembers the code and optional IP, then syncs
     @discardableResult
     public func pair(code: String, ip: String? = nil) async -> String {
         let trimmed = code.filter(\.isNumber)
         guard trimmed.count == 6 else { return "The code is 6 digits." }
         if let ip = ip?.trimmingCharacters(in: .whitespacesAndNewlines), !ip.isEmpty {
-            UserDefaults.standard.set(ip, forKey: Self.ipKey)
-            self.macIP = ip
+            var clean = ip
+            if clean.lowercased().hasPrefix("http://") { clean = String(clean.dropFirst(7)) }
+            if clean.lowercased().hasPrefix("https://") { clean = String(clean.dropFirst(8)) }
+            clean = clean.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+            UserDefaults.standard.set(clean, forKey: Self.ipKey)
+            self.macIP = clean
         }
         let previous = self.code
         self.code = trimmed
@@ -128,8 +156,9 @@ public final class MacSyncClient: ObservableObject {
         var endpoints: [NWEndpoint] = []
         
         // 1. Direct IP if specified or saved from previous sync
-        if let savedIP = UserDefaults.standard.string(forKey: Self.ipKey), !savedIP.isEmpty {
-            endpoints.append(NWEndpoint.hostPort(host: NWEndpoint.Host(savedIP), port: SyncWire.defaultPort))
+        if let savedIP = UserDefaults.standard.string(forKey: Self.ipKey),
+           let ep = Self.parseEndpoint(from: savedIP) {
+            endpoints.append(ep)
         }
         
         // 2. In iOS Simulator, probe loopback to reach host Mac directly
