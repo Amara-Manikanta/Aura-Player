@@ -404,7 +404,8 @@ public struct AudioPlayerView: View {
                                     .id(line.id)
                                 }
                             }
-                            .padding(.horizontal, 40)
+                            .padding(.leading, 40)
+                            .padding(.trailing, isDevotional ? 270 : 40)
                             .padding(.vertical, 24)
                         }
                         .mask(
@@ -439,6 +440,7 @@ public struct AudioPlayerView: View {
                     }
                 } else if let plain = lyrics.plainLyrics, !plain.isEmpty {
                     // Static Plain Lyrics
+                    let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                     ScrollView {
                         Text(plain)
                             .font(.system(size: 16, weight: .regular, design: .rounded))
@@ -446,7 +448,8 @@ public struct AudioPlayerView: View {
                             .foregroundStyle(.white.opacity(0.85))
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 48)
+                            .padding(.leading, 48)
+                            .padding(.trailing, isDevotional ? 270 : 48)
                             .padding(.vertical, 20)
                     }
                 } else {

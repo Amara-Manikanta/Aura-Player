@@ -47,13 +47,25 @@ sealed class Route {
 fun MainScreen(
     repository: PlaylistRepository,
     playbackManager: PlaybackManager,
-    onEnterPiP: () -> Unit
+    onEnterPiP: () -> Unit,
+    pendingImportText: String? = null,
+    onClearPendingImport: () -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
     val stack = remember { mutableStateListOf<Route>() }
     var isFullPlayerExpanded by remember { mutableStateOf(false) }
     var showChangeVideo by remember { mutableStateOf(false) }
     var addCurrentToPlaylist by remember { mutableStateOf(false) }
+    var showPendingImportDialog by remember { mutableStateOf(false) }
+    var activeImportPayload by remember { mutableStateOf("") }
+
+    LaunchedEffect(pendingImportText) {
+        if (!pendingImportText.isNullOrBlank()) {
+            activeImportPayload = pendingImportText
+            showPendingImportDialog = true
+        }
+    }
     val snackbar = remember { SnackbarHostState() }
     val errorMessage by playbackManager.errorMessage.collectAsState()
     LaunchedEffect(errorMessage) { errorMessage?.let { snackbar.showSnackbar(it) } }

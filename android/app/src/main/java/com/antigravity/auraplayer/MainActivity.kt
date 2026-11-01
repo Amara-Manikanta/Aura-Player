@@ -2,6 +2,7 @@ package com.antigravity.auraplayer
 
 import android.Manifest
 import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var repository: PlaylistRepository
     private lateinit var playbackManager: PlaybackManager
     private var isInPiPMode by mutableStateOf(false)
+    private var pendingImportText by mutableStateOf<String?>(null)
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* system notification permission result */ }
@@ -32,6 +34,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         checkNotificationPermission()
+        handleIntent(intent)
 
         repository = PlaylistRepository.getInstance(applicationContext)
         playbackManager = PlaybackManager.getInstance(applicationContext)
@@ -47,8 +50,36 @@ class MainActivity : ComponentActivity() {
                     MainScreen(
                         repository = repository,
                         playbackManager = playbackManager,
-                        onEnterPiP = { enterPictureInPicture() }
+                        onEnterPiP = { enterPictureInPicture() },
+                        pendingImportText = pendingImportText,
+                        onClearPendingImport = { pendingImportText = null }
                     )
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        when (intent.action) {
+            Intent.ACTION_SEND -> {
+                if (intent.type == "text/plain") {
+                    val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    if (!text.isNullOrBlank()) {
+                        pendingImportText = text
+                    }
+                }
+            }
+            Intent.ACTION_VIEW -> {
+                val data = intent.dataString
+                if (!data.isNullOrBlank()) {
+                    pendingImportText = data
                 }
             }
         }

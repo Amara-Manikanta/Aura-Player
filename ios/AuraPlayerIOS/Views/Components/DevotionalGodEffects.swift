@@ -61,25 +61,22 @@ struct DevotionalGodEffectsView: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
-            let pulse = 0.96 + 0.08 * sin(time * 1.8)
-            let jewelGlow = 0.6 + 0.4 * sin(time * 3.5)
-            let haloRotation = (time * 9.0).truncatingRemainder(dividingBy: 360.0)
             
             ZStack {
-                // 1. Deep Saffron & Golden Sanctum Glow
+                // 1. Deep Saffron & Golden Sanctum Glow in background
                 RadialGradient(
                     colors: [
-                        Color(red: 0.42, green: 0.15, blue: 0.0, opacity: 0.42 * pulse),
-                        Color(red: 0.22, green: 0.08, blue: 0.0, opacity: 0.25),
+                        Color(red: 0.42, green: 0.15, blue: 0.0, opacity: 0.35),
+                        Color(red: 0.22, green: 0.08, blue: 0.0, opacity: 0.18),
                         Color.clear
                     ],
                     center: .center,
                     startRadius: 20,
-                    endRadius: 360 * pulse
+                    endRadius: 420
                 )
                 .ignoresSafeArea()
                 
-                // 2. Rising Deepam Sparks / Aarthi Embers
+                // 2. Rising Deepam Sparks / Aarthi Embers in background
                 Canvas { context, size in
                     for p in particles {
                         let progress = (time * p.speed + p.wobblePhase / (2 * .pi)).truncatingRemainder(dividingBy: 1.0)
@@ -94,57 +91,12 @@ struct DevotionalGodEffectsView: View {
                     }
                 }
                 
-                // 3. Central Deity Arch & Idol
-                ZStack {
-                    Canvas { context, size in
-                        let cx = size.width / 2.0
-                        let cy = size.height / 2.0
-                        let r = min(size.width, size.height) * 0.38
-                        
-                        // A. Rotating Sunbeam Rays (Prabhavali)
-                        var rayContext = context
-                        rayContext.translateBy(x: cx, y: cy)
-                        rayContext.rotate(by: .degrees(haloRotation))
-                        
-                        let numRays = 24
-                        for i in 0..<numRays {
-                            let angle = (Double(i) * 360.0 / Double(numRays)) * (.pi / 180.0)
-                            let inner = r * 0.45
-                            let outer = r * (0.85 + 0.10 * pulse)
-                            let start = CGPoint(x: inner * cos(angle), y: inner * sin(angle))
-                            let end = CGPoint(x: outer * cos(angle), y: outer * sin(angle))
-                            
-                            var rayPath = Path()
-                            rayPath.move(to: start)
-                            rayPath.addLine(to: end)
-                            
-                            rayContext.stroke(
-                                rayPath,
-                                with: .color(Color.yellow.opacity(0.24)),
-                                lineWidth: 2.5
-                            )
-                        }
-                        
-                        // B. Halo Center Disc
-                        let haloRect = CGRect(x: cx - r * 0.65 * pulse, y: cy - r * 0.65 * pulse, width: r * 1.30 * pulse, height: r * 1.30 * pulse)
-                        context.fill(
-                            Circle().path(in: haloRect),
-                            with: .radialGradient(
-                                Gradient(colors: [Color.yellow.opacity(0.22 * pulse), Color.orange.opacity(0.10 * pulse), Color.clear]),
-                                center: CGPoint(x: cx, y: cy),
-                                startRadius: 0,
-                                endRadius: r * 0.65 * pulse
-                            )
-                        )
-                    }
-                    .frame(width: 320, height: 320)
-                    
-                    // Authentic Swami Ayyappa Idol Image with gentle breathing animation
-                    if deity == .ayyappa {
+                // 3. Static Deity Idol placed to the side without any effects
+                if deity == .ayyappa {
+                    HStack {
+                        Spacer()
                         AyyappaIdolImageView()
-                            .scaleEffect(min(max(0.96, pulse), 1.04))
-                            .opacity(0.88)
-                            .shadow(color: Color.orange.opacity(0.35), radius: 20)
+                            .padding(.trailing, 24)
                     }
                 }
             }

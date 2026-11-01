@@ -7,6 +7,8 @@ import com.antigravity.auraplayer.model.TrackSourceType
 import com.antigravity.auraplayer.utils.MetadataCleaner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -16,6 +18,7 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.util.concurrent.TimeUnit
 
 enum class PlatformType(val displayName: String, val badgeColor: Long) {
+    AURA_PLAYER("Aura Player", 0xFF7B6BE4),
     YOUTUBE("YouTube", 0xFFFF0000),
     SPOTIFY("Spotify", 0xFF1DB954),
     JIOSAAVN("JioSaavn", 0xFF2BC5B4),
@@ -24,6 +27,22 @@ enum class PlatformType(val displayName: String, val badgeColor: Long) {
     APPLE_MUSIC("Apple Music", 0xFFFC3C44),
     TEXT("Track List", 0xFF8A2BE2)
 }
+
+@Serializable
+data class SharedTrackPayload(
+    val title: String,
+    val artist: String = "",
+    val yt: String? = null,
+    val d: Long = 0,
+    val art: String? = null
+)
+
+@Serializable
+data class SharedPlaylistPayload(
+    val type: String = "playlist",
+    val name: String = "Shared Playlist",
+    val tracks: List<SharedTrackPayload> = emptyList()
+)
 
 data class ImportedPlaylist(
     val name: String,
@@ -62,6 +81,7 @@ object PlatformImportService {
         if (lower.isEmpty()) return null
 
         return when {
+            lower.contains("auraplayer") || lower.contains("/aura-player/share") || lower.contains("#data=") || lower.contains("?data=") -> PlatformType.AURA_PLAYER
             lower.contains("youtube.com") || lower.contains("youtu.be") -> PlatformType.YOUTUBE
             lower.contains("spotify.com") || lower.startsWith("spotify:") -> PlatformType.SPOTIFY
             lower.contains("jiosaavn.com") -> PlatformType.JIOSAAVN
@@ -86,6 +106,7 @@ object PlatformImportService {
 
             val platform = detectPlatform(trimmed)
             val result = when (platform) {
+                PlatformType.AURA_PLAYER -> importAuraPlayer(trimmed)
                 PlatformType.YOUTUBE -> importYouTube(trimmed)
                 PlatformType.SPOTIFY -> importSpotify(trimmed)
                 PlatformType.JIOSAAVN -> importJioSaavn(trimmed)
@@ -493,6 +514,145 @@ object PlatformImportService {
             platform = PlatformType.TEXT,
             tracks = tracks
         )
+    }
+
+    // endregion
+
+    // region Aura Player Cross-Sharing
+
+    private fun extractBase64Payload(input: String): String? {
+        val regex = Regex("""[#?&](?:data|song)=([A-Za-z0-9_-]+={0,2})""")
+        val match = regex.find(input)
+        if (match != null) {
+            return match.groupValues[1]
+        }
+        val trimmed = input.trim()
+        if (trimmed.length > 20 && trimmed.matches(Regex("""^[A-Za-z0-9_-]+={0,2}$"""))) {
+            return trimmed
+        }
+        return null
+    }
+
+    private fun decodeBase64Safe(b64: String): ByteArray {
+        val normalized = b64.replace('-', '+').replace('_', '/')
+        val padded = when (normalized.length % 4) {
+            2 -> "$normalized=="
+            3 -> "$normalized="
+            else -> normalized
+        }
+        return try {
+            java.util.Base64.getDecoder().decode(padded)
+        } catch (e: Throwable) {
+            android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
+        }
+    }
+
+    private fun encodeBase64Safe(bytes: ByteArray): String {
+        return try {
+            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        } catch (e: Throwable) {
+            android.util.Base64.encodeToString(
+                bytes,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+            ).trim()
+        }
+    }
+
+    private fun importAuraPlayer(input: String): ImportedPlaylist {
+        val b64 = extractBase64Payload(input)
+            ?: throw IllegalArgumentException("Could not find shared playlist code in link")
+
+        val bytes = decodeBase64Safe(b64)
+        val jsonStr = String(bytes, Charsets.UTF_8)
+        val payload = jsonParser.decodeFromString<SharedPlaylistPayload>(jsonStr)
+
+        val tracks = payload.tracks.map { item ->
+            MediaTrack(
+                id = java.util.UUID.randomUUID().toString(),
+                title = item.title,
+                artist = item.artist.ifBlank { "Unknown Artist" },
+                duration = item.d,
+                youtubeId = item.yt,
+                thumbnailURL = item.art ?: (if (item.yt != null) "https://i.ytimg.com/vi/${item.yt}/hqdefault.jpg" else null),
+                sourceType = com.antigravity.auraplayer.model.SourceType.YOUTUBE,
+                originalURL = if (item.yt != null) "https://www.youtube.com/watch?v=${item.yt}" else ""
+            )
+        }
+
+        return ImportedPlaylist(
+            name = payload.name.ifBlank { if (tracks.size == 1) tracks.first().title else "Shared Playlist" },
+            platform = PlatformType.AURA_PLAYER,
+            tracks = tracks,
+            sourceUrl = input
+        )
+    }
+
+    fun createShareUrl(name: String, tracks: List<MediaTrack>): String {
+        val payload = SharedPlaylistPayload(
+            type = "playlist",
+            name = name,
+            tracks = tracks.map {
+                SharedTrackPayload(
+                    title = it.title,
+                    artist = it.artist,
+                    yt = it.youtubeId,
+                    d = it.duration,
+                    art = it.thumbnailURL
+                )
+            }
+        )
+        val jsonStr = jsonParser.encodeToString(payload)
+        val b64 = encodeBase64Safe(jsonStr.toByteArray(Charsets.UTF_8))
+        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=$b64"
+    }
+
+    fun createSongShareUrl(track: MediaTrack): String {
+        val payload = SharedPlaylistPayload(
+            type = "song",
+            name = track.title,
+            tracks = listOf(
+                SharedTrackPayload(
+                    title = track.title,
+                    artist = track.artist,
+                    yt = track.youtubeId,
+                    d = track.duration,
+                    art = track.thumbnailURL
+                )
+            )
+        )
+        val jsonStr = jsonParser.encodeToString(payload)
+        val b64 = encodeBase64Safe(jsonStr.toByteArray(Charsets.UTF_8))
+        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=$b64"
+    }
+
+    fun formatWhatsAppPlaylistShare(name: String, tracks: List<MediaTrack>): String {
+        val sb = StringBuilder()
+        sb.append("🎶 *").append(name.trim()).append("* (").append(tracks.size).append(" songs)\n")
+        sb.append("Shared via Aura Player\n\n")
+        val previewCount = minOf(tracks.size, 8)
+        for (i in 0 until previewCount) {
+            val t = tracks[i]
+            sb.append("${i + 1}. ${t.title} - ${t.artist}\n")
+        }
+        if (tracks.size > 8) {
+            sb.append("... and ${tracks.size - 8} more songs\n")
+        }
+        sb.append("\n📲 *Add to Aura Player in 1-Tap:*\n")
+        sb.append(createShareUrl(name, tracks))
+        return sb.toString()
+    }
+
+    fun formatWhatsAppSongShare(track: MediaTrack): String {
+        val sb = StringBuilder()
+        sb.append("🎵 *").append(track.title.trim()).append("* - ").append(track.artist.trim()).append("\n")
+        if (!track.youtubeId.isNullOrEmpty()) {
+            sb.append("Listen on YouTube: https://youtu.be/").append(track.youtubeId).append("\n\n")
+        } else {
+            sb.append("\n")
+        }
+        sb.append("📲 *Open in Aura Player:*\n")
+        sb.append(createSongShareUrl(track))
+        return sb.toString()
     }
 
     // endregion

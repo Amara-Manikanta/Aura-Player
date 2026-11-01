@@ -36,18 +36,25 @@ fun ImportPlaylistDialog(
     repository: PlaylistRepository,
     targetPlaylistId: String? = null,
     targetPlaylistName: String? = null,
+    initialInput: String = "",
     onDismiss: () -> Unit,
     onImportSuccess: (playlistId: String?, trackCount: Int) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
-    var inputText by remember { mutableStateOf("") }
+    var inputText by remember { mutableStateOf(initialInput) }
     var customPlaylistName by remember { mutableStateOf("") }
     var importIntoCurrent by remember { mutableStateOf(targetPlaylistId != null) }
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialInput) {
+        if (initialInput.isNotBlank()) {
+            inputText = initialInput
+        }
+    }
 
     val detectedPlatform = remember(inputText) {
         PlatformImportService.detectPlatform(inputText)
@@ -55,6 +62,7 @@ fun ImportPlaylistDialog(
 
     val platforms = remember {
         listOf(
+            PlatformType.AURA_PLAYER,
             PlatformType.YOUTUBE,
             PlatformType.SPOTIFY,
             PlatformType.JIOSAAVN,

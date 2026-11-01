@@ -28,6 +28,32 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Custom Scheme: auraplayer://share?data=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="auraplayer" />
+            </intent-filter>
+
+            <!-- Universal Web Link: https://amara-manikanta.github.io/Aura-Player/share.html -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="amara-manikanta.github.io"
+                    android:pathPrefix="/Aura-Player/share" />
+            </intent-filter>
+
+            <!-- Receive Shared Links or Text from WhatsApp & other apps -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <service
