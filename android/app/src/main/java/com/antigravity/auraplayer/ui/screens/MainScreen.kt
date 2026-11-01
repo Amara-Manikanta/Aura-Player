@@ -24,6 +24,7 @@ import com.antigravity.auraplayer.model.MediaTrack
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.components.*
 import com.antigravity.auraplayer.ui.theme.*
+import kotlinx.coroutines.launch
 
 enum class AppTab(val title: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
@@ -190,6 +191,24 @@ fun MainScreen(
                 onPick = { pl -> repository.addTrackToPlaylist(pl.id, trackForChange); addCurrentToPlaylist = false },
                 onCreate = { name -> repository.addTrackToPlaylist(repository.addPlaylist(name).id, trackForChange); addCurrentToPlaylist = false },
                 onDismiss = { addCurrentToPlaylist = false }
+            )
+        }
+
+        if (showPendingImportDialog && activeImportPayload.isNotBlank()) {
+            ImportPlaylistDialog(
+                repository = repository,
+                initialInput = activeImportPayload,
+                onDismiss = {
+                    showPendingImportDialog = false
+                    activeImportPayload = ""
+                    onClearPendingImport()
+                },
+                onImportSuccess = { _, count ->
+                    showPendingImportDialog = false
+                    activeImportPayload = ""
+                    onClearPendingImport()
+                    scope.launch { snackbar.showSnackbar("Imported $count songs to your library!") }
+                }
             )
         }
     }

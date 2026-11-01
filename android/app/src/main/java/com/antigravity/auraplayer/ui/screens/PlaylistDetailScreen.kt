@@ -1,5 +1,6 @@
 package com.antigravity.auraplayer.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,12 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.MediaTrack
 import com.antigravity.auraplayer.model.Playlist
 import com.antigravity.auraplayer.service.DisplayMode
+import com.antigravity.auraplayer.service.PlatformImportService
 import com.antigravity.auraplayer.service.PlayContext
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.components.GlassSearchField
@@ -74,6 +77,7 @@ fun PlaylistDetailScreen(
     var trackToChangeVideo by remember { mutableStateOf<MediaTrack?>(null) }
     var showHeaderMenu by remember { mutableStateOf(false) }
 
+    val androidContext = LocalContext.current
     val scope = rememberCoroutineScope()
 
     if (playlist == null) {
@@ -108,6 +112,20 @@ fun PlaylistDetailScreen(
                             expanded = showHeaderMenu,
                             onDismissRequest = { showHeaderMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Share Playlist (WhatsApp / Link)") },
+                                onClick = {
+                                    showHeaderMenu = false
+                                    val shareText = PlatformImportService.formatWhatsAppPlaylistShare(playlist.name, playlist.tracks)
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, shareText)
+                                        type = "text/plain"
+                                    }
+                                    androidContext.startActivity(Intent.createChooser(sendIntent, "Share Playlist via WhatsApp / Link"))
+                                },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = SuccessGreen) }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Rename Playlist") },
                                 onClick = {
@@ -199,6 +217,21 @@ fun PlaylistDetailScreen(
                     Icon(Icons.Default.Shuffle, contentDescription = null, tint = TextPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Shuffle", color = TextPrimary)
+                }
+
+                IconButton(
+                    onClick = {
+                        val shareText = PlatformImportService.formatWhatsAppPlaylistShare(playlist.name, playlist.tracks)
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            type = "text/plain"
+                        }
+                        androidContext.startActivity(Intent.createChooser(sendIntent, "Share Playlist via WhatsApp / Link"))
+                    },
+                    modifier = Modifier.size(48.dp).glass(CircleShape)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = "Share Playlist", tint = TextPrimary)
                 }
             }
 

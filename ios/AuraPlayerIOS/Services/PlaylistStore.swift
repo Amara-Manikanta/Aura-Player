@@ -136,6 +136,24 @@ public class PlaylistStore: ObservableObject {
             save()
         }
     }
+
+    @discardableResult
+    public func importSharedPlaylist(name: String, tracks: [MediaTrack]) -> Playlist {
+        if let existingIdx = playlists.firstIndex(where: { $0.name.lowercased() == name.lowercased() && !$0.isBuiltIn }) {
+            for track in tracks {
+                if !playlists[existingIdx].tracks.contains(where: { Self.isSameSong($0, track) }) {
+                    playlists[existingIdx].tracks.append(track)
+                }
+            }
+            save()
+            return playlists[existingIdx]
+        } else {
+            let pl = Playlist(name: name, tracks: tracks)
+            playlists.append(pl)
+            save()
+            return pl
+        }
+    }
     
     public func removeTrack(trackId: UUID, from playlistId: UUID) {
         guard let idx = playlists.firstIndex(where: { $0.id == playlistId }) else { return }

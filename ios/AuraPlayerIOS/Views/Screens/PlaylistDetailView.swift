@@ -141,6 +141,23 @@ public struct PlaylistDetailView: View {
                                 }
                                 .accessibilityLabel("Add songs")
                             }
+
+                            Button {
+                                Haptics.light()
+                                let text = PlatformShareService.formatWhatsAppPlaylistShare(name: currentPlaylist.name, tracks: currentPlaylist.tracks)
+                                let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                   let rootVC = windowScene.windows.first?.rootViewController {
+                                    rootVC.present(av, animated: true)
+                                }
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(AuraTheme.textPrimary)
+                                    .frame(width: 50, height: 50)
+                                    .liquidGlass(cornerRadius: 25)
+                            }
+                            .accessibilityLabel("Share playlist")
                         }
                         .padding(.horizontal, 24)
                     } else if canAddSongs {

@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.antigravity.auraplayer.data.PlaylistRepository
+import com.antigravity.auraplayer.service.PlatformImportService
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.theme.*
 
@@ -47,6 +48,17 @@ fun CurrentSongMenu(
                 open = false
                 val artist = t.artist.trim()
                 copyToClipboard(context, if (artist.isEmpty() || artist == "Unknown Artist") t.title else "${t.title} – $artist", "Song name copied")
+            })
+        DropdownMenuItem(text = { Text("Share Song (WhatsApp / Link)") }, leadingIcon = { Icon(Icons.Default.Share, null, tint = SuccessGreen) },
+            onClick = {
+                open = false
+                val shareText = PlatformImportService.formatWhatsAppSongShare(t)
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                    type = "text/plain"
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Share Song via WhatsApp / Link"))
             })
         DropdownMenuItem(text = { Text("Rename Song…") }, leadingIcon = { Icon(Icons.Default.Edit, null) },
             onClick = {

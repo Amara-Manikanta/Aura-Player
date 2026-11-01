@@ -33,7 +33,7 @@ data class SharedTrackPayload(
     val title: String,
     val artist: String = "",
     val yt: String? = null,
-    val d: Long = 0,
+    val d: Double = 0.0,
     val art: String? = null
 )
 
@@ -574,7 +574,7 @@ object PlatformImportService {
                 duration = item.d,
                 youtubeId = item.yt,
                 thumbnailURL = item.art ?: (if (item.yt != null) "https://i.ytimg.com/vi/${item.yt}/hqdefault.jpg" else null),
-                sourceType = com.antigravity.auraplayer.model.SourceType.YOUTUBE,
+                sourceType = TrackSourceType.YOUTUBE,
                 originalURL = if (item.yt != null) "https://www.youtube.com/watch?v=${item.yt}" else ""
             )
         }

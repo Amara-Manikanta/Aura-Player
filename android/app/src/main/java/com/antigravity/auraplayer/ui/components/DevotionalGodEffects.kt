@@ -182,85 +182,44 @@ fun DevotionalGodEffects(
             }
         }
 
-        // Lord Ayyappa / Deity Idol Illustration & Prabhavali Arch
-        Box(
-            modifier = Modifier
-                .size(310.dp)
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val cx = size.width / 2f
-                val cy = size.height / 2f
-                val r = (size.width / 2f).coerceAtMost(size.height / 2f)
-
-                // 1. Radiant Prabhavali (Halo with rotating divine sunbeams)
-                rotate(haloRotation, pivot = Offset(cx, cy)) {
-                    val numRays = 24
-                    for (i in 0 until numRays) {
-                        val angle = (i * 360f / numRays) * (PI.toFloat() / 180f)
-                        val rayInner = r * 0.45f
-                        val rayOuter = r * (0.85f + 0.10f * auraPulse)
-                        val start = Offset(cx + rayInner * cos(angle), cy + rayInner * sin(angle))
-                        val end = Offset(cx + rayOuter * cos(angle), cy + rayOuter * sin(angle))
-                        drawLine(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFFFFD54F).copy(alpha = 0.30f),
-                                    Color(0xFFFF8F00).copy(alpha = 0.08f),
-                                    Color.Transparent
-                                ),
-                                start = start,
-                                end = end
-                            ),
-                            start = start,
-                            end = end,
-                            strokeWidth = 3f * density,
-                            cap = StrokeCap.Round
-                        )
-                    }
-                }
-
-                // 2. Halo Center Disc
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFFFE082).copy(alpha = 0.28f * auraPulse),
-                            Color(0xFFFF8F00).copy(alpha = 0.15f * auraPulse),
-                            Color.Transparent
-                        ),
-                        center = Offset(cx, cy),
-                        radius = r * 0.70f * auraPulse
-                    ),
-                    radius = r * 0.70f * auraPulse,
-                    center = Offset(cx, cy)
-                )
-
-                // 3. Deity Specific Idol
-                if (deity != DevotionalDeity.AYYAPPA) {
-                    when (deity) {
-                        DevotionalDeity.SHIVA -> drawShivaTrishul(cx, cy, r, auraPulse)
-                        DevotionalDeity.RAMA -> drawRamaKodanda(cx, cy, r, auraPulse)
-                        DevotionalDeity.VENKATESWARA -> drawVenkateswaraShankhaChakra(cx, cy, r, auraPulse)
-                        DevotionalDeity.SAI_BABA -> drawSaiBabaAura(cx, cy, r, auraPulse)
-                        DevotionalDeity.GANESHA -> drawGaneshaIdol(cx, cy, r, auraPulse)
-                        DevotionalDeity.GENERIC -> drawSacredOm(cx, cy, r, auraPulse)
-                        else -> {}
-                    }
-                }
-            }
-
-            // Authentic Swami Ayyappa Idol Image
-            if (deity == DevotionalDeity.AYYAPPA) {
+        // Static Deity Idol placed to the side without any effects
+        if (deity == DevotionalDeity.AYYAPPA) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 16.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.ayyappa_idol),
                     contentDescription = "Lord Ayyappa",
                     modifier = Modifier
-                        .fillMaxSize(0.86f)
-                        .scale(auraPulse.coerceIn(0.96f, 1.04f))
-                        .alpha(0.88f),
+                        .width(140.dp)
+                        .height(180.dp),
                     contentScale = ContentScale.Fit
                 )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 24.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Canvas(modifier = Modifier.size(160.dp)) {
+                    val cx = size.width / 2f
+                    val cy = size.height / 2f
+                    val r = (size.width / 2f).coerceAtMost(size.height / 2f)
+                    when (deity) {
+                        DevotionalDeity.SHIVA -> drawShivaTrishul(cx, cy, r, 1.0f)
+                        DevotionalDeity.RAMA -> drawRamaKodanda(cx, cy, r, 1.0f)
+                        DevotionalDeity.VENKATESWARA -> drawVenkateswaraShankhaChakra(cx, cy, r, 1.0f)
+                        DevotionalDeity.SAI_BABA -> drawSaiBabaAura(cx, cy, r, 1.0f)
+                        DevotionalDeity.GANESHA -> drawGaneshaIdol(cx, cy, r, 1.0f)
+                        DevotionalDeity.GENERIC -> drawSacredOm(cx, cy, r, 1.0f)
+                        else -> {}
+                    }
+                }
             }
         }
     }

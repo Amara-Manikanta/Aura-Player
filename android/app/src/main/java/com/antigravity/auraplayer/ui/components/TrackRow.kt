@@ -1,5 +1,6 @@
 package com.antigravity.auraplayer.ui.components
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.MediaTrack
+import com.antigravity.auraplayer.service.PlatformImportService
 import com.antigravity.auraplayer.ui.theme.*
 import com.antigravity.auraplayer.utils.DownloadHelper
 
@@ -135,6 +137,20 @@ fun TrackRow(
                         leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) }
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text("Share Song") },
+                    onClick = {
+                        showMenu = false
+                        val shareText = PlatformImportService.formatWhatsAppSongShare(track)
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share Song via WhatsApp / Link"))
+                    },
+                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = SuccessGreen) }
+                )
                 DropdownMenuItem(
                     text = { Text("Start & End Time…") },
                     onClick = { showMenu = false; showTrim = true },

@@ -113,6 +113,18 @@ public struct FullPlayerSheet: View {
                                 } label: {
                                     Label("Copy Song Name", systemImage: "doc.on.doc")
                                 }
+
+                                Button {
+                                    Haptics.light()
+                                    let text = PlatformShareService.formatWhatsAppSongShare(track: track)
+                                    let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                       let rootVC = windowScene.windows.first?.rootViewController {
+                                        rootVC.present(av, animated: true)
+                                    }
+                                } label: {
+                                    Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+                                }
                                 
                                 Button {
                                     showAddToPlaylist = true

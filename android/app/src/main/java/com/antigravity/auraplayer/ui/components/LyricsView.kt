@@ -67,8 +67,11 @@ fun LyricsView(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = if (compact) 12.dp else 20.dp),
-            contentAlignment = Alignment.Center
+                .padding(
+                    start = if (compact) 12.dp else 20.dp,
+                    end = if (compact) 12.dp else (if (deity != null) 140.dp else 20.dp)
+                ),
+            contentAlignment = if (deity != null && !compact) Alignment.CenterStart else Alignment.Center
         ) {
             if (!syncedLyrics.isNullOrEmpty()) {
             val listState = rememberLazyListState()
