@@ -13,7 +13,7 @@ public struct LyricsView: View {
     
     public var body: some View {
         ZStack {
-            if let track = playback.currentTrack,
+            if !compact, let track = playback.currentTrack,
                let deity = DevotionalDeity.detect(track: track) {
                 DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
                     .allowsHitTesting(false)
@@ -55,7 +55,7 @@ public struct LyricsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let lyrics = playback.lyrics, lyrics.isSynced {
-                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
+                let isDevotional = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
                         LazyVStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : 16) {
@@ -85,11 +85,12 @@ public struct LyricsView: View {
                                         Text(line.text)
                                             .font(
                                                 .system(
-                                                    size: compact ? (isActive ? 19 : 15) : (isActive ? 25 : 18),
+                                                    size: compact ? (isActive ? 18 : 15) : (isActive ? 24 : 18),
                                                     weight: isActive ? .bold : .medium,
                                                     design: .rounded
                                                 )
                                             )
+                                            .lineSpacing(compact ? 4 : 6)
                                             .foregroundColor(
                                                 isActive
                                                     ? Color.white
@@ -99,16 +100,16 @@ public struct LyricsView: View {
                                             // long lines wrap inside the screen instead of widening the whole player
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
-                                    .padding(.horizontal, compact ? 16 : 22)
+                                    .padding(.horizontal, compact ? 16 : 20)
                                     .padding(.vertical, compact ? 8 : 12)
                                     .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                                     .background {
                                         if isActive {
-                                            let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
+                                            let isDev = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                                             RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
                                                 .fill(
                                                     LinearGradient(
-                                                        colors: isDevotional ? [
+                                                        colors: isDev ? [
                                                             Color(red: 1.0, green: 0.85, blue: 0.4).opacity(0.24),
                                                             Color(red: 1.0, green: 0.55, blue: 0.1).opacity(0.18),
                                                             Color.white.opacity(0.08)
@@ -125,7 +126,7 @@ public struct LyricsView: View {
                                                     RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
                                                         .stroke(
                                                             LinearGradient(
-                                                                colors: isDevotional ? [
+                                                                colors: isDev ? [
                                                                     Color(red: 1.0, green: 0.88, blue: 0.5).opacity(0.65),
                                                                     Color(red: 1.0, green: 0.6, blue: 0.1).opacity(0.4),
                                                                     Color.white.opacity(0.12)
@@ -140,12 +141,12 @@ public struct LyricsView: View {
                                                             lineWidth: 1.2
                                                         )
                                                 )
-                                                .shadow(color: (isDevotional ? Color.orange : AuraTheme.primary).opacity(0.35), radius: 14, x: 0, y: 4)
+                                                .shadow(color: (isDev ? Color.orange : AuraTheme.primary).opacity(0.35), radius: 14, x: 0, y: 4)
                                                 .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
                                                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
                                         }
                                     }
-                                    .scaleEffect(isActive ? 1.03 : 0.96)
+                                    .scaleEffect(isActive ? 1.02 : 0.97, anchor: isDevotional ? .leading : .center)
                                     .blur(radius: isActive ? 0 : (isPast ? 0.2 : 0.45))
                                     .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isActive)
                                 }
@@ -153,8 +154,8 @@ public struct LyricsView: View {
                                 .id(line.id)
                             }
                         }
-                        .padding(.leading, isDevotional ? 12 : (compact ? 14 : 20))
-                        .padding(.trailing, isDevotional ? (compact ? 95 : 135) : (compact ? 14 : 20))
+                        .padding(.leading, isDevotional ? 22 : (compact ? 16 : 22))
+                        .padding(.trailing, isDevotional ? 135 : (compact ? 16 : 22))
                         .padding(.vertical, compact ? 16 : 40)
                         .frame(maxWidth: .infinity)
                     }
@@ -184,15 +185,15 @@ public struct LyricsView: View {
                     }
                 }
             } else if let plain = playback.lyrics?.plainLyrics, !plain.isEmpty {
-                let isDevotional = playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
+                let isDevotional = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollView(showsIndicators: false) {
                     Text(plain)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(AuraTheme.textSecondary)
                         .lineSpacing(10)
                         .multilineTextAlignment(isDevotional ? .leading : .center)
-                        .padding(.leading, isDevotional ? 16 : 24)
-                        .padding(.trailing, isDevotional ? 135 : 24)
+                        .padding(.leading, isDevotional ? 22 : (compact ? 16 : 24))
+                        .padding(.trailing, isDevotional ? 135 : (compact ? 16 : 24))
                         .padding(.vertical, 24)
                         .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                 }

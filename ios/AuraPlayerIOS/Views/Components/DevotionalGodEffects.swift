@@ -96,7 +96,7 @@ struct DevotionalGodEffectsView: View {
                     HStack {
                         Spacer()
                         AyyappaIdolImageView()
-                            .padding(.trailing, 14)
+                            .padding(.trailing, 20)
                     }
                 }
             }
