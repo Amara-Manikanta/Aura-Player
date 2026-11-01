@@ -151,7 +151,24 @@ public struct PlaylistDetailView: View {
                         .buttonStyle(.plain)
                         .help("Add Songs or Videos")
                         
+                        Button {
+                            let text = PlatformShareService.formatWhatsAppPlaylistShare(name: pl.name, tracks: pl.tracks)
+                            PlatformShareService.share(text: text)
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .padding(8)
+                                .background(Circle().fill(Color.white.opacity(0.1)))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Share Playlist (WhatsApp / Link)")
+                        
                         Menu {
+                            Button {
+                                let text = PlatformShareService.formatWhatsAppPlaylistShare(name: pl.name, tracks: pl.tracks)
+                                PlatformShareService.share(text: text)
+                            } label: {
+                                Label("Share Playlist (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+                            }
                             Button("Rename Playlist...") {
                                 renameText = pl.name
                                 showRenameAlert = true
@@ -478,6 +495,12 @@ public struct TrackRowView: View {
                     onPlay()
                 }
                 Button {
+                    let text = PlatformShareService.formatWhatsAppSongShare(track: track)
+                    PlatformShareService.share(text: text)
+                } label: {
+                    Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+                }
+                Button {
                     onChangeVideo()
                 } label: {
                     Label("Change Video Link...", systemImage: "link.badge.plus")
@@ -529,6 +552,12 @@ public struct TrackRowView: View {
         .contextMenu {
             Button("Play") {
                 onPlay()
+            }
+            Button {
+                let text = PlatformShareService.formatWhatsAppSongShare(track: track)
+                PlatformShareService.share(text: text)
+            } label: {
+                Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
             }
             Button {
                 onChangeVideo()

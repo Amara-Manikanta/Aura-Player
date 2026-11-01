@@ -38,6 +38,12 @@ public struct CurrentSongMenu: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(Self.nameToCopy(track), forType: .string)
                 }
+                Button {
+                    let text = PlatformShareService.formatWhatsAppSongShare(track: track)
+                    PlatformShareService.share(text: text)
+                } label: {
+                    Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+                }
                 Button("Rename Song…") {
                     newTitle = track.title
                     newArtist = track.artist
