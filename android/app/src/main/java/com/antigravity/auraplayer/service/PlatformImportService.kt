@@ -588,7 +588,7 @@ object PlatformImportService {
     }
 
     fun createShareUrl(name: String, tracks: List<MediaTrack>): String {
-        val exportTracks = tracks.take(40)
+        val exportTracks = tracks.take(25)
         val payload = SharedPlaylistPayload(
             type = "playlist",
             name = name,

@@ -444,66 +444,167 @@
   <div class="toast" id="toast">Copied to clipboard!</div>
 
   <script>
-    // Universal URL-safe Base64 decoder with UTF-8 support and truncated recovery
-    function decodePayload(b64) {
-      if (!b64 || typeof b64 !== "string") return null;
+    // Universal URL-safe Base64 decoder with UTF-8 support, stack-based JSON repair, and multi-format normalization
+    function decodePayload(input) {
+      if (!input || typeof input !== "string") return null;
+      let str = input.trim();
+
+      // 1. If full URL or string with parameter is passed, extract value
+      const urlMatch = str.match(/[#?&](?:data|song)=([A-Za-z0-9_\-\s%+=]+)/);
+      if (urlMatch && urlMatch[1]) {
+        str = urlMatch[1].trim();
+      }
+
+      // 2. Decode percent-encoding if present
+      if (str.includes("%")) {
+        try { str = decodeURIComponent(str); } catch (e) {}
+      }
+
+      // 3. Direct JSON or JSON array
+      if (str.startsWith("{") || str.startsWith("[")) {
+        try { return normalizePayload(JSON.parse(str)); } catch (e) {}
+      }
+
+      // 4. Base64 (Standard and URL-safe)
       try {
-        let raw = b64.trim();
-        // 1. Convert spaces back to + (URLSearchParams and URL decoding turn + into space)
-        raw = raw.replace(/\s+/g, "+");
-        // 2. Convert URL-safe base64 to standard base64
-        let clean = raw.replace(/-/g, "+").replace(/_/g, "/");
-        // 3. Strip any trailing non-base64 characters
-        clean = clean.replace(/[^A-Za-z0-9+/=]/g, "");
-        // 4. Fix padding
+        let clean = str.replace(/\s+/g, "+").replace(/-/g, "+").replace(/_/g, "/");
+        clean = clean.replace(/[^A-Za-z0-9+/]/g, "");
+        if (clean.length % 4 === 1) {
+          clean = clean.slice(0, -1);
+        }
         while (clean.length % 4 !== 0) {
           clean += "=";
         }
         const binary = atob(clean);
         const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        const decoded = new TextDecoder("utf-8").decode(bytes);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+
+        // Try direct parse
         try {
-          return JSON.parse(decoded);
+          return normalizePayload(JSON.parse(text));
         } catch (parseErr) {
-          // If there is trailing whitespace or non-JSON characters after closing brace
-          const firstBrace = decoded.indexOf('{');
-          const lastBrace = decoded.lastIndexOf('}');
-          if (firstBrace >= 0 && lastBrace > firstBrace) {
-            return JSON.parse(decoded.substring(firstBrace, lastBrace + 1));
-          }
-          throw parseErr;
+          // Attempt stack-based repair
+          const repaired = repairJsonStack(text);
+          if (repaired) return normalizePayload(repaired);
         }
-      } catch (e) {
-        console.warn("Direct parse failed, attempting partial/recovery parsing", e);
-        try {
-          let raw = b64.trim().replace(/\s+/g, "+").replace(/-/g, "+").replace(/_/g, "/");
-          raw = raw.replace(/[^A-Za-z0-9+/]/g, "");
-          const validLen = raw.length - (raw.length % 4);
-          let sub = raw.substring(0, validLen);
-          while (sub.length % 4 !== 0) { sub += "="; }
-          const binary = atob(sub);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          let text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-          if (text.includes('"tracks":[')) {
-            const tracksIdx = text.indexOf('"tracks":[');
-            const subTracks = text.substring(tracksIdx);
-            const lastObjEnd = subTracks.lastIndexOf("}");
-            if (lastObjEnd > 0) {
-              const repaired = text.substring(0, tracksIdx + lastObjEnd + 1) + "]}";
-              return JSON.parse(repaired);
-            }
-          }
-        } catch (recoverErr) {
-          console.error("Recovery also failed", recoverErr);
-        }
-        return null;
+      } catch (b64Err) {
+        console.warn("Base64 decode failed", b64Err);
       }
+
+      // 5. Plain text song name or YouTube link fallback
+      if (str.length > 3 && (str.includes("youtu") || str.includes("-") || str.length < 80)) {
+        return createFallbackPayload(str);
+      }
+
+      return null;
+    }
+
+    function repairJsonStack(text) {
+      if (!text) return null;
+      try { return JSON.parse(text); } catch (e) {}
+
+      let s = text.trim();
+      let inString = false;
+      const stack = [];
+
+      for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        if (c === "\"" && (i === 0 || s[i - 1] !== "\\")) {
+          inString = !inString;
+        } else if (!inString) {
+          if (c === "{" || c === "[") {
+            stack.push(c);
+          } else if (c === "}") {
+            if (stack.length && stack[stack.length - 1] === "{") stack.pop();
+          } else if (c === "]") {
+            if (stack.length && stack[stack.length - 1] === "[") stack.pop();
+          }
+        }
+      }
+
+      if (inString) s += "\"";
+      s = s.replace(/,\s*$/, "").replace(/:\s*"?$/, ":null");
+
+      while (stack.length > 0) {
+        const token = stack.pop();
+        if (token === "{") s += "}";
+        else if (token === "[") s += "]";
+      }
+
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        const tIdx = s.search(/"(?:tracks|s)"\s*:\s*\[/);
+        if (tIdx !== -1) {
+          const bIdx = s.indexOf("[", tIdx);
+          const sub = s.substring(bIdx + 1);
+          const last = Math.max(sub.lastIndexOf("}"), sub.lastIndexOf("]"));
+          if (last > 0) {
+            const rep = s.substring(0, bIdx + 1) + sub.substring(0, last + 1) + (sub.endsWith("]") ? "}" : "]}");
+            try { return JSON.parse(rep); } catch (e2) {}
+          }
+        }
+      }
+      return null;
+    }
+
+    function normalizePayload(data) {
+      if (!data) return null;
+      if (Array.isArray(data)) {
+        return {
+          type: "playlist",
+          name: "Shared Tracks",
+          tracks: data.map(normalizeTrack)
+        };
+      }
+      const rawTracks = data.tracks || data.s || (data.title ? [data] : []);
+      const tracks = rawTracks.map(normalizeTrack);
+      return {
+        type: data.type || (tracks.length === 1 ? "song" : "playlist"),
+        name: data.name || data.n || (tracks[0]?.title || "Shared Music"),
+        tracks: tracks
+      };
+    }
+
+    function normalizeTrack(t) {
+      if (Array.isArray(t)) {
+        return {
+          title: t[0] || "Unknown Title",
+          artist: t[1] || "Unknown Artist",
+          yt: t[2] || null,
+          d: typeof t[3] === "number" ? t[3] : 0
+        };
+      }
+      return {
+        title: t.title || t.t || "Unknown Title",
+        artist: t.artist || t.a || "Unknown Artist",
+        yt: t.yt || t.y || t.youtubeId || null,
+        d: t.d || t.duration || 0,
+        art: t.art || t.thumbnailURL || null
+      };
+    }
+
+    function createFallbackPayload(raw) {
+      let title = raw;
+      let artist = "Shared Song";
+      let yt = null;
+
+      const ytMatch = raw.match(/(?:youtu\.be\/|v=|\/embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+      if (ytMatch) {
+        yt = ytMatch[1];
+        title = "YouTube Track";
+      } else if (raw.includes(" - ")) {
+        const parts = raw.split(" - ");
+        title = parts[0].trim();
+        artist = parts.slice(1).join(" - ").trim();
+      }
+
+      return {
+        type: "song",
+        name: title,
+        tracks: [{ title: title, artist: artist, yt: yt, d: 0 }]
+      };
     }
 
     function getRawPayloadString() {
@@ -537,8 +638,15 @@
       setTimeout(() => toast.classList.remove('show'), 2800);
     }
 
-    function renderSharedContent() {
-      const b64Data = getRawPayloadString();
+    function handleManualInput() {
+      const input = document.getElementById('manual-share-input');
+      if (!input || !input.value.trim()) return;
+      const val = input.value.trim();
+      renderSharedContent(val);
+    }
+
+    function renderSharedContent(customDataStr) {
+      const b64Data = customDataStr || getRawPayloadString();
 
       const container = document.getElementById('content-container');
 
@@ -546,11 +654,19 @@
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-icon">🎧</div>
-            <h3>No Shared Tracks Found</h3>
+            <h3>Import or Open Shared Music</h3>
             <p style="color: var(--text-muted); margin-top: 8px; font-size: 14px;">
-              This link doesn't contain any shared songs or playlist data.
+              Paste any Aura Player link, song code, or YouTube URL below to preview and import:
             </p>
-            <a href="index.html" class="btn btn-primary" style="margin-top: 20px;">Download Aura Player</a>
+            <div style="margin-top: 18px; display: flex; gap: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
+              <input type="text" id="manual-share-input" placeholder="Paste link or song name..." 
+                style="flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; outline: none;"
+                onkeydown="if(event.key==='Enter') handleManualInput()">
+              <button onclick="handleManualInput()" class="btn btn-primary" style="padding: 12px 20px; font-size: 14px; white-space: nowrap;">
+                Load
+              </button>
+            </div>
+            <a href="index.html" class="btn btn-secondary" style="margin-top: 24px; font-size: 13px;">Download Aura Player App</a>
           </div>
         `;
         return;
@@ -558,16 +674,24 @@
 
       const data = decodePayload(b64Data);
 
-      if (!data) {
+      if (!data || !data.tracks || data.tracks.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-icon">⚠️</div>
             <h3>Unable to Parse Shared Music</h3>
             <p style="color: var(--text-muted); margin-top: 8px; font-size: 14px;">
-              The share code is incomplete or malformed.
+              The share code is incomplete or malformed. Paste the link or song name manually:
             </p>
+            <div style="margin-top: 18px; display: flex; gap: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
+              <input type="text" id="manual-share-input" placeholder="Paste link or code here..." 
+                style="flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; outline: none;"
+                onkeydown="if(event.key==='Enter') handleManualInput()">
+              <button onclick="handleManualInput()" class="btn btn-primary" style="padding: 12px 20px; font-size: 14px; white-space: nowrap;">
+                Load
+              </button>
+            </div>
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
-              <button onclick="location.reload(true)" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px;">
+              <button onclick="location.reload(true)" class="btn btn-secondary" style="padding: 10px 20px; font-size: 14px;">
                 🔄 Refresh Page
               </button>
               <a href="index.html" class="btn btn-secondary" style="padding: 10px 20px; font-size: 14px;">Go to Home</a>
