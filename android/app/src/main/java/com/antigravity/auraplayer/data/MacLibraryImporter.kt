@@ -28,13 +28,8 @@ object MacLibraryImporter {
     /** Swift encodes dates as seconds since 1 Jan 2001 */
     private const val APPLE_EPOCH_OFFSET_SEC = 978_307_200L
 
-    fun load(context: Context): List<Playlist> = try {
-        val text = context.assets.open("playlists.json").bufferedReader().use { it.readText() }
-        Json.parseToJsonElement(text).jsonArray.map { it.jsonObject.toPlaylist() }
-            .also { list -> Log.i(TAG, "Mac library: ${list.size} playlists, ${list.sumOf { it.tracks.size }} songs") }
-    } catch (e: Exception) {
-        Log.w(TAG, "couldn't read the bundled Mac library", e)
-        emptyList()
+    fun load(context: Context): List<Playlist> {
+        return emptyList()
     }
 
     private fun JsonObject.toPlaylist() = Playlist(

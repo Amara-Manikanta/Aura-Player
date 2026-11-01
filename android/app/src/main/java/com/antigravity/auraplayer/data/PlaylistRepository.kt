@@ -90,32 +90,51 @@ class PlaylistRepository private constructor(private val context: Context) {
 
     // region Storage
 
-    /** Saved library if it's real; otherwise the Mac library bundled with the app. */
+    /** Saved library if it exists; otherwise starts fresh with an empty Favorites playlist. */
     private fun loadPlaylists() {
+        val prefs = context.getSharedPreferences("aura_player_prefs", Context.MODE_PRIVATE)
+        val legacyMigrated = prefs.getBoolean("cleared_legacy_predefined_playlists", false)
+
         val saved = try {
-            if (playlistsFile.exists()) json.decodeFromString<List<Playlist>>(playlistsFile.readText()) else emptyList()
+            if (playlistsFile.exists()) json.decodeFromString<List<Playlist>>(playlistsFile.readText()) else null
         } catch (e: Exception) {
             Log.w(TAG, "saved library unreadable", e)
-            emptyList()
+            null
         }
-        // The old sample library had 3 songs: anything that small gets the real library instead
-        if (saved.sumOf { it.tracks.size } > 10) {
-            _playlists.value = saved
+
+        // Clean up legacy pre-bundled library from prior installations if present
+        if (!legacyMigrated) {
+            prefs.edit().putBoolean("cleared_legacy_predefined_playlists", true).apply()
+            if (saved != null && (saved.size >= 15 || saved.sumOf { it.tracks.size } > 500)) {
+                _playlists.value = listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true))
+                savePlaylists()
+                return
+            }
+        }
+
+        if (saved != null) {
+            // Ensure Favorites built-in playlist exists
+            _playlists.value = if (saved.none { it.id == favoritesPlaylistId || it.name.equals("Favorites", true) }) {
+                listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true)) + saved
+            } else {
+                saved
+            }
             return
         }
-        val mac = MacLibraryImporter.load(context)
-        _playlists.value = mac.ifEmpty { listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true)) }
+
+        // Fresh installation: Start with empty library (only empty Favorites playlist) so user creates all from scratch
+        _playlists.value = listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true))
         savePlaylists()
     }
 
-    /** Throws away changes made on the phone and starts again from the Mac library. */
-    fun resetToMacLibrary() {
-        val mac = MacLibraryImporter.load(context)
-        if (mac.isNotEmpty()) {
-            _playlists.value = mac
-            savePlaylists()
-        }
+    /** Resets the user's library to a clean slate with only an empty Favorites playlist. */
+    fun resetToCleanLibrary() {
+        _playlists.value = listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true))
+        savePlaylists()
     }
+
+    /** Legacy alias for resetToCleanLibrary. */
+    fun resetToMacLibrary() = resetToCleanLibrary()
 
     private fun savePlaylists() {
         try {

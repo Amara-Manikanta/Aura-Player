@@ -30,7 +30,7 @@ fun SettingsScreen(repository: PlaylistRepository, playbackManager: PlaybackMana
     val context = LocalContext.current
     val playlists by repository.playlists.collectAsState()
     var language by remember { mutableStateOf(playbackManager.preferredLanguage ?: "none") }
-    var confirmRestore by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -75,38 +75,38 @@ fun SettingsScreen(repository: PlaylistRepository, playbackManager: PlaybackMana
                 Text("${playlists.size} playlists • %,d songs".format(repository.allUniqueTracks.size), color = TextSecondary, fontSize = 13.sp)
             }
             Row(
-                Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable { confirmRestore = true }.padding(14.dp),
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable { confirmReset = true }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Restore, null, tint = Color(0xFFFFB86B))
+                Icon(Icons.Default.DeleteSweep, null, tint = DangerRed)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Restore Mac Library", color = Color(0xFFFFB86B), fontWeight = FontWeight.SemiBold)
-                    Text("Start again from the playlists, play counts and dates bundled from your Mac", color = TextSecondary, fontSize = 12.sp)
+                    Text("Reset Library to Scratch", color = DangerRed, fontWeight = FontWeight.SemiBold)
+                    Text("Delete all playlists and start completely fresh", color = TextSecondary, fontSize = 12.sp)
                 }
             }
-            Text("Apple Music can't be read on Android, so play counts and Recently Added come from the Mac library bundled with the app; plays here are counted on top.",
+            Text("Playlists and tracks are stored locally on your device. You can create custom playlists or import them anytime.",
                 color = TextTertiary, fontSize = 12.sp)
 
             Section("ABOUT")
-            Text("Aura Player for Android • same features as the Mac and iPhone apps", color = TextSecondary, fontSize = 13.sp)
+            Text("Aura Player for Android • Listen without limits", color = TextSecondary, fontSize = 13.sp)
             Spacer(Modifier.height(120.dp))
         }
     }
 
-    if (confirmRestore) {
+    if (confirmReset) {
         AlertDialog(
-            onDismissRequest = { confirmRestore = false },
-            title = { Text("Restore Mac Library?") },
-            text = { Text("Playlists and changes made on this phone will be replaced by the library bundled from your Mac.") },
+            onDismissRequest = { confirmReset = false },
+            title = { Text("Reset Library?") },
+            text = { Text("All custom playlists and tracks will be cleared so you can start completely from scratch.") },
             confirmButton = {
                 Button(onClick = {
-                    repository.resetToMacLibrary()
-                    confirmRestore = false
-                    Toast.makeText(context, "Mac library restored", Toast.LENGTH_SHORT).show()
-                }, colors = ButtonDefaults.buttonColors(containerColor = DangerRed)) { Text("Restore") }
+                    repository.resetToCleanLibrary()
+                    confirmReset = false
+                    Toast.makeText(context, "Library reset to scratch", Toast.LENGTH_SHORT).show()
+                }, colors = ButtonDefaults.buttonColors(containerColor = DangerRed)) { Text("Reset") }
             },
-            dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } }
         )
     }
 }

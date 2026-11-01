@@ -84,8 +84,34 @@ fun LibraryScreen(
                 }
             }
         }
-        items(playlists.filter { it.id != favorites?.id }, key = { it.id }) { pl ->
-            PlaylistCard(playlist = pl, onClick = { onSelectPlaylist(pl.id) })
+        val customPlaylists = playlists.filter { it.id != favorites?.id }
+        if (customPlaylists.isEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glass(RoundedCornerShape(16.dp))
+                        .clickable { showNewPlaylistDialog = true }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier.size(42.dp).background(NeonPurple.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Add, null, tint = NeonPurple)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Create Your First Playlist", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text("Tap to name a new playlist and start adding songs", color = TextSecondary, fontSize = 12.sp)
+                    }
+                }
+            }
+        } else {
+            items(customPlaylists, key = { it.id }) { pl ->
+                PlaylistCard(playlist = pl, onClick = { onSelectPlaylist(pl.id) })
+            }
         }
     }
 

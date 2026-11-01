@@ -90,6 +90,29 @@ fun HomeScreen(
                 }
             }
         }
+        if (repository.allUniqueTracks.isEmpty()) {
+            item {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                        .glass(RoundedCornerShape(20.dp))
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.LibraryMusic, null, tint = NeonPurple, modifier = Modifier.size(44.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Text("Your Library is Ready", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Search for your favorite songs to play and add to playlists, or import playlists from Spotify, YouTube, and WhatsApp.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        }
         if (mostPlayed.isNotEmpty()) {
             item {
                 Text("Most Played", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 22.sp,
