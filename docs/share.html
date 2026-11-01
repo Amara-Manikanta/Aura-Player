@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Aura Player — Shared Music</title>
   <meta name="description" content="Open and listen to shared songs and playlists on Aura Player. Zero subscriptions, zero ads, 100% private.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%231B154C'/><polygon points='40,30 75,50 40,70' fill='%23FFFFFF'/></svg>">
@@ -462,7 +465,17 @@
           bytes[i] = binary.charCodeAt(i);
         }
         const decoded = new TextDecoder("utf-8").decode(bytes);
-        return JSON.parse(decoded);
+        try {
+          return JSON.parse(decoded);
+        } catch (parseErr) {
+          // If there is trailing whitespace or non-JSON characters after closing brace
+          const firstBrace = decoded.indexOf('{');
+          const lastBrace = decoded.lastIndexOf('}');
+          if (firstBrace >= 0 && lastBrace > firstBrace) {
+            return JSON.parse(decoded.substring(firstBrace, lastBrace + 1));
+          }
+          throw parseErr;
+        }
       } catch (e) {
         console.warn("Direct parse failed, attempting partial/recovery parsing", e);
         try {
@@ -478,9 +491,11 @@
           }
           let text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
           if (text.includes('"tracks":[')) {
-            const lastObjEnd = text.lastIndexOf("}");
+            const tracksIdx = text.indexOf('"tracks":[');
+            const subTracks = text.substring(tracksIdx);
+            const lastObjEnd = subTracks.lastIndexOf("}");
             if (lastObjEnd > 0) {
-              const repaired = text.substring(0, lastObjEnd + 1) + "]}";
+              const repaired = text.substring(0, tracksIdx + lastObjEnd + 1) + "]}";
               return JSON.parse(repaired);
             }
           }
@@ -493,8 +508,8 @@
 
     function getRawPayloadString() {
       const href = window.location.href;
-      // 1. Direct regex match on entire URL (handles hash, query, encoded or unencoded)
-      const regex = /[#?&](?:data|song)=([A-Za-z0-9_\-\s%+=]+)/;
+      // 1. Direct regex match on entire URL (stops at space/newline/trailing text)
+      const regex = /[#?&](?:data|song)=([A-Za-z0-9_\-%+=]+)/;
       const match = href.match(regex);
       if (match && match[1]) {
         let val = match[1];
@@ -551,7 +566,12 @@
             <p style="color: var(--text-muted); margin-top: 8px; font-size: 14px;">
               The share code is incomplete or malformed.
             </p>
-            <a href="index.html" class="btn btn-secondary" style="margin-top: 20px;">Go to Aura Player Home</a>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+              <button onclick="location.reload(true)" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px;">
+                🔄 Refresh Page
+              </button>
+              <a href="index.html" class="btn btn-secondary" style="padding: 10px 20px; font-size: 14px;">Go to Home</a>
+            </div>
           </div>
         `;
         return;
