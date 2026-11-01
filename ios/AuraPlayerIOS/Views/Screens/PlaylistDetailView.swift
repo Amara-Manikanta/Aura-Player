@@ -81,85 +81,102 @@ public struct PlaylistDetailView: View {
                     }
                     .padding(.top, 16)
                     
-                    // Action Buttons (Play All & Shuffle)
+                    // Action Buttons
                     if !currentPlaylist.tracks.isEmpty {
-                        HStack(spacing: 16) {
-                            Button {
-                                Haptics.medium()
-                                if let first = currentPlaylist.tracks.first {
-                                    playback.playTrack(first, inQueue: currentPlaylist.tracks, context: .playlist(currentPlaylist.id))
+                        VStack(spacing: 12) {
+                            // Primary Playback Row: Play All & Shuffle
+                            HStack(spacing: 14) {
+                                Button {
+                                    Haptics.medium()
+                                    if let first = currentPlaylist.tracks.first {
+                                        playback.playTrack(first, inQueue: currentPlaylist.tracks, context: .playlist(currentPlaylist.id))
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 16, weight: .bold))
+                                        Text("Play All")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .lineLimit(1)
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .background(AuraTheme.primaryGradient)
+                                    .cornerRadius(25)
+                                    .shadow(color: AuraTheme.primary.opacity(0.3), radius: 10, y: 4)
                                 }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "play.fill")
-                                    Text("Play All")
+                                
+                                Button {
+                                    Haptics.medium()
+                                    guard !currentPlaylist.tracks.isEmpty else { return }
+                                    playback.isShuffled = true
+                                    var pool = currentPlaylist.tracks
+                                    if pool.count > 1, let current = playback.currentTrack {
+                                        pool.removeAll { $0.id == current.id }
+                                    }
+                                    pool.shuffle()
+                                    let pick = pool.first ?? currentPlaylist.tracks.first!
+                                    var fullQueue = currentPlaylist.tracks.filter { $0.id != pick.id }.shuffled()
+                                    fullQueue.insert(pick, at: 0)
+                                    playback.playTrack(pick, inQueue: fullQueue, context: .playlist(currentPlaylist.id))
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "shuffle")
+                                            .font(.system(size: 16, weight: .bold))
+                                        Text("Shuffle")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .lineLimit(1)
+                                    }
+                                    .foregroundColor(AuraTheme.textPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .liquidGlass(cornerRadius: 25)
                                 }
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .background(AuraTheme.primaryGradient)
-                                .cornerRadius(25)
-                                .shadow(color: AuraTheme.primary.opacity(0.3), radius: 10, y: 4)
                             }
                             
-                            Button {
-                                Haptics.medium()
-                                guard !currentPlaylist.tracks.isEmpty else { return }
-                                playback.isShuffled = true
-                                var pool = currentPlaylist.tracks
-                                if pool.count > 1, let current = playback.currentTrack {
-                                    pool.removeAll { $0.id == current.id }
+                            // Secondary Actions Row: Add Songs & Share
+                            HStack(spacing: 12) {
+                                if canAddSongs {
+                                    Button {
+                                        Haptics.light()
+                                        showAddSongs = true
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 15, weight: .semibold))
+                                            Text("Add Songs")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .lineLimit(1)
+                                        }
+                                        .foregroundColor(AuraTheme.textPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 42)
+                                        .liquidGlass(cornerRadius: 21)
+                                    }
+                                    .accessibilityLabel("Add songs")
                                 }
-                                pool.shuffle()
-                                let pick = pool.first ?? currentPlaylist.tracks.first!
-                                var fullQueue = currentPlaylist.tracks.filter { $0.id != pick.id }.shuffled()
-                                fullQueue.insert(pick, at: 0)
-                                playback.playTrack(pick, inQueue: fullQueue, context: .playlist(currentPlaylist.id))
-                            } label: {
-                                HStack {
-                                    Image(systemName: "shuffle")
-                                    Text("Shuffle")
-                                }
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(AuraTheme.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .liquidGlass(cornerRadius: 25)
-                            }
-                            
-                            if canAddSongs {
+
                                 Button {
                                     Haptics.light()
-                                    showAddSongs = true
+                                    sharePlaylist()
                                 } label: {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 20, weight: .bold))
-                                        .foregroundColor(AuraTheme.textPrimary)
-                                        .frame(width: 50, height: 50)
-                                        .liquidGlass(cornerRadius: 25)
-                                }
-                                .accessibilityLabel("Add songs")
-                            }
-
-                            Button {
-                                Haptics.light()
-                                let text = PlatformShareService.formatWhatsAppPlaylistShare(name: currentPlaylist.name, tracks: currentPlaylist.tracks)
-                                let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                                   let rootVC = windowScene.windows.first?.rootViewController {
-                                    rootVC.present(av, animated: true)
-                                }
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 18, weight: .bold))
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "square.and.arrow.up")
+                                            .font(.system(size: 15, weight: .semibold))
+                                        Text(canAddSongs ? "Share" : "Share Playlist")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .lineLimit(1)
+                                    }
                                     .foregroundColor(AuraTheme.textPrimary)
-                                    .frame(width: 50, height: 50)
-                                    .liquidGlass(cornerRadius: 25)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 42)
+                                    .liquidGlass(cornerRadius: 21)
+                                }
+                                .accessibilityLabel("Share playlist")
                             }
-                            .accessibilityLabel("Share playlist")
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 20)
                     } else if canAddSongs {
                         // Empty playlist: invite the first song
                         Button {
@@ -259,20 +276,6 @@ public struct PlaylistDetailView: View {
             AddSongsSheet(playlistId: currentPlaylist.id, playlistStore: playlistStore)
         }
         .toolbar {
-            // + : add songs by name or link (not for the generated lists like Most Played)
-            if canAddSongs {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Haptics.light()
-                        showAddSongs = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(AuraTheme.primary)
-                    }
-                    .accessibilityLabel("Add songs")
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     if canAddSongs {
@@ -289,6 +292,12 @@ public struct PlaylistDetailView: View {
                             }
                         } label: {
                             Label("Play All", systemImage: "play.fill")
+                        }
+
+                        Button {
+                            sharePlaylist()
+                        } label: {
+                            Label("Share Playlist", systemImage: "square.and.arrow.up")
                         }
                     }
                     
@@ -316,7 +325,7 @@ public struct PlaylistDetailView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 18))
+                        .font(.system(size: 20))
                         .foregroundColor(AuraTheme.primary)
                 }
             }
@@ -342,6 +351,15 @@ public struct PlaylistDetailView: View {
         }
         .sheet(item: $trackForPlaylistSheet) { t in
             AddToPlaylistSheet(track: t, playlistStore: playlistStore)
+        }
+    }
+    
+    private func sharePlaylist() {
+        let text = PlatformShareService.formatWhatsAppPlaylistShare(name: currentPlaylist.name, tracks: currentPlaylist.tracks)
+        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            rootVC.present(av, animated: true)
         }
     }
 }
