@@ -11,9 +11,7 @@ struct AuraPlayerIOSApp: App {
             MainTabView()
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
-                    if let (name, tracks) = PlatformShareService.decodePayload(from: url.absoluteString) {
-                        PlaylistStore.shared.importSharedPlaylist(name: name, tracks: tracks)
-                    }
+                    PlaylistStore.shared.importShared(from: url.absoluteString)
                 }
         }
         // Like the Mac app: pick up Apple Music play counts / new songs at launch and on return

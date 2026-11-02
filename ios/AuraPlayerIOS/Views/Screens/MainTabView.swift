@@ -8,6 +8,10 @@ public struct MainTabView: View {
     
     public init() {}
     
+    private var noticeBinding: Binding<Bool> {
+        Binding(get: { playlistStore.importNotice != nil }, set: { if !$0 { playlistStore.importNotice = nil } })
+    }
+    
     /// Room for the floating mini player, so lists can scroll their last rows into view
     private var miniPlayerSpace: CGFloat { playback.currentTrack != nil ? 76 : 0 }
     
@@ -65,6 +69,11 @@ public struct MainTabView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showFullPlayer) {
             FullPlayerSheet(playback: playback, playlistStore: playlistStore)
+        }
+        .alert("Import", isPresented: noticeBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(playlistStore.importNotice ?? "")
         }
         .preferredColorScheme(.dark)
     }

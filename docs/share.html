@@ -646,7 +646,7 @@
     }
 
     function renderSharedContent(customDataStr) {
-      const b64Data = customDataStr || getRawPayloadString();
+      const b64Data = (typeof customDataStr === "string" && customDataStr.trim().length > 0) ? customDataStr : getRawPayloadString();
 
       const container = document.getElementById('content-container');
 
@@ -806,8 +806,9 @@
         .replace(/'/g, '&#39;');
     }
 
-    window.addEventListener('DOMContentLoaded', renderSharedContent);
-    window.addEventListener('hashchange', renderSharedContent);
+    // (not passed directly: the event object would be taken as the share code)
+    window.addEventListener('DOMContentLoaded', () => renderSharedContent());
+    window.addEventListener('hashchange', () => renderSharedContent());
   </script>
 </body>
 </html>

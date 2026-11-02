@@ -137,6 +137,23 @@ public class PlaylistStore: ObservableObject {
         }
     }
 
+    /// Says what an import did (shown as an alert by the main screen)
+    @Published public var importNotice: String?
+    
+    /// Imports a shared playlist or song from a link, or from the whole WhatsApp message containing one
+    @discardableResult
+    public func importShared(from text: String) -> Bool {
+        guard let (name, tracks) = PlatformShareService.decodePayload(from: text), !tracks.isEmpty else {
+            importNotice = "That doesn't contain a shared Aura Player playlist or song. Copy the whole message from WhatsApp, then try again."
+            return false
+        }
+        let before = playlists.first { $0.name.lowercased() == name.lowercased() && !$0.isBuiltIn }?.tracks.count ?? 0
+        let pl = importSharedPlaylist(name: name, tracks: tracks)
+        let added = pl.tracks.count - before
+        importNotice = added > 0 ? "Added \(added) song\(added == 1 ? "" : "s") to \"\(pl.name)\"." : "\"\(pl.name)\" already has these songs."
+        return true
+    }
+    
     @discardableResult
     public func importSharedPlaylist(name: String, tracks: [MediaTrack]) -> Playlist {
         if let existingIdx = playlists.firstIndex(where: { $0.name.lowercased() == name.lowercased() && !$0.isBuiltIn }) {

@@ -121,6 +121,20 @@ public struct LibraryView: View {
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(AuraTheme.textPrimary)
                             Spacer()
+                            // Playlist or song shared from WhatsApp: copy the message, then tap this
+                            Button {
+                                Haptics.light()
+                                if let text = UIPasteboard.general.string, !text.isEmpty {
+                                    playlistStore.importShared(from: text)
+                                } else {
+                                    playlistStore.importNotice = "Copy the shared message from WhatsApp first, then tap Import."
+                                }
+                            } label: {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(AuraTheme.primary)
+                            }
+                            .padding(.trailing, 8)
                             Button {
                                 showNewPlaylistDialog = true
                             } label: {
