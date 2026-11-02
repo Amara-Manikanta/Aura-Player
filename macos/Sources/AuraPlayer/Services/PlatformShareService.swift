@@ -33,7 +33,7 @@ public struct SharedPlaylistPayload: Codable, Sendable {
 
 public enum PlatformShareService {
     public static func createShareUrl(name: String, tracks: [MediaTrack]) -> String {
-        let exportTracks = Array(tracks.prefix(40))
+        let exportTracks = Array(tracks.prefix(50))
         let payload = SharedPlaylistPayload(
             type: "playlist",
             name: name,
