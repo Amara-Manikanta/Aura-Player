@@ -668,7 +668,7 @@ object PlatformImportService {
         )
         val jsonStr = jsonParser.encodeToString(payload)
         val b64 = encodeBase64Safe(jsonStr.toByteArray(Charsets.UTF_8))
-        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=$b64"
+        return "https://amara-manikanta.github.io/Aura-Player/share.html?v=2#data=$b64"
     }
 
     fun createSongShareUrl(track: MediaTrack): String {
@@ -687,7 +687,7 @@ object PlatformImportService {
         )
         val jsonStr = jsonParser.encodeToString(payload)
         val b64 = encodeBase64Safe(jsonStr.toByteArray(Charsets.UTF_8))
-        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=$b64"
+        return "https://amara-manikanta.github.io/Aura-Player/share.html?v=2#data=$b64"
     }
 
     fun formatWhatsAppPlaylistShare(name: String, tracks: List<MediaTrack>): String {

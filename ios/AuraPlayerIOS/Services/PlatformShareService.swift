@@ -49,7 +49,7 @@ public enum PlatformShareService {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
-        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=\(b64)"
+        return "https://amara-manikanta.github.io/Aura-Player/share.html?v=2#data=\(b64)"
     }
 
     public static func createSongShareUrl(track: MediaTrack) -> String {
@@ -71,7 +71,7 @@ public enum PlatformShareService {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
-        return "https://amara-manikanta.github.io/Aura-Player/share.html#data=\(b64)"
+        return "https://amara-manikanta.github.io/Aura-Player/share.html?v=2#data=\(b64)"
     }
 
     public static func formatWhatsAppPlaylistShare(name: String, tracks: [MediaTrack]) -> String {

@@ -51,7 +51,7 @@ class PlatformImportServiceTest {
         val whatsappMsg = PlatformImportService.formatWhatsAppPlaylistShare("Ayyappa Devotional", sampleTracks)
         assertTrue(whatsappMsg.contains("Ayyappa Devotional"))
         assertTrue(whatsappMsg.contains("Karthika Masamolu"))
-        assertTrue(whatsappMsg.contains("https://amara-manikanta.github.io/Aura-Player/share.html#data="))
+        assertTrue(whatsappMsg.contains("https://amara-manikanta.github.io/Aura-Player/share.html?v=2#data="))
 
         // Extract share link and parse it back
         val detect = PlatformImportService.detectPlatform(whatsappMsg)
