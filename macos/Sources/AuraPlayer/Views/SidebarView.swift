@@ -1,6 +1,7 @@
 import SwiftUI
 
 public enum SidebarSelection: Hashable {
+    case search
     case playlist(UUID)
     case nowPlaying
     case artists
@@ -52,6 +53,18 @@ public struct SidebarView: View {
     
     public var body: some View {
         List(selection: $selection) {
+            Section {
+                NavigationLink(value: SidebarSelection.search) {
+                    Label {
+                        Text("Search YouTube")
+                            .font(.system(size: 13, weight: .medium))
+                    } icon: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.purple)
+                    }
+                }
+            }
+            
             Section("Library") {
                 NavigationLink(value: SidebarSelection.nowPlaying) {
                     Label {

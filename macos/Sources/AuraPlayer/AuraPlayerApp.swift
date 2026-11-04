@@ -17,6 +17,13 @@ struct AuraPlayerApp: App {
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
+            CommandMenu("Search") {
+                Button("Search YouTube...") {
+                    NotificationCenter.default.post(name: Notification.Name("AuraPlayerOpenSearch"), object: nil)
+                }
+                .keyboardShortcut("f", modifiers: [.command])
+            }
+            
             CommandMenu("Playback") {
                 // Space, ⌘← / ⌘→ and ← / → are handled app-wide in AppDelegate's key monitor
                 Button("Play / Pause (Space)") {

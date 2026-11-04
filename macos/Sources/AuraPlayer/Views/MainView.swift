@@ -32,6 +32,14 @@ public struct MainView: View {
                 // Standard Views (Music Cover Art, Lyrics, Playlists, Library)
                 Group {
                     switch selection {
+                    case .search:
+                        SearchView(
+                            store: store,
+                            playback: playback,
+                            onSelectPlaylist: { newId in
+                                selection = .playlist(newId)
+                            }
+                        )
                     case .nowPlaying:
                         AudioPlayerView(playback: playback)
                     case .playlist(let id):
@@ -140,6 +148,9 @@ public struct MainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await store.autoSyncAppleMusic() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("AuraPlayerOpenSearch"))) { _ in
+            selection = .search
         }
         .onAppear {
             playback.playlistStore = store

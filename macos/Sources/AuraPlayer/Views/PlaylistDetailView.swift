@@ -204,25 +204,44 @@ public struct PlaylistDetailView: View {
                 
                 Divider()
                 
-                // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Filter songs in playlist...", text: $searchText)
-                        .textFieldStyle(.plain)
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
+                // Search Bar & Add Button
+                HStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Filter songs in playlist...", text: $searchText)
+                            .textFieldStyle(.plain)
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(8)
+                    .background(Color.black.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    
+                    Button {
+                        showAddTrackSheet = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add from YouTube")
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.purple)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Search YouTube to add new songs or music videos to this playlist")
                 }
-                .padding(10)
-                .background(Color.black.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 
@@ -245,6 +264,34 @@ public struct PlaylistDetailView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(.purple)
                         .padding(.top, 8)
+                        Spacer()
+                    }
+                } else if filteredTracks.isEmpty {
+                    VStack(spacing: 14) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 38))
+                            .foregroundStyle(.secondary)
+                        Text("No matching songs in this playlist")
+                            .font(.headline)
+                        Text("Looking for \"\(searchText)\"? You can search and add it directly from YouTube.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 30)
+                        
+                        Button {
+                            showAddTrackSheet = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Search YouTube for \"\(searchText)\"")
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
                         Spacer()
                     }
                 } else {

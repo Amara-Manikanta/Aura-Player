@@ -441,6 +441,29 @@ public actor YouTubeService {
         return streamURL
     }
     
+    /// Fetches live search suggestions as the user types
+    public func getSuggestions(query: String) async -> [String] {
+        let clean = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clean.count >= 2,
+              let encoded = clean.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=\(encoded)") else {
+            return []
+        }
+        
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 4
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200,
+                  let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Any],
+                  jsonArray.count >= 2,
+                  let suggestions = jsonArray[1] as? [String] else { return [] }
+            return suggestions
+        } catch {
+            return []
+        }
+    }
+
     /// - Parameters:
     ///   - songTitle: when resolving a known track, its song name; results that don't contain it are dropped.
     ///   - expectedDuration: when known (e.g. from Apple Music), videos close to this length rank higher.
