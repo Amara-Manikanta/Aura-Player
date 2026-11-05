@@ -25,7 +25,7 @@ struct AuraPlayerIOSApp: App {
     }
 }
 
-/// The app is portrait-only, except the full-screen video, which switches to landscape.
+/// The app supports both vertical (portrait) and horizontal (landscape) orientations across all screens.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         OrientationLock.mask
@@ -34,10 +34,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 @MainActor
 enum OrientationLock {
-    static var mask: UIInterfaceOrientationMask = .portrait
+    static var mask: UIInterfaceOrientationMask = .allButUpsideDown
     
-    /// Allows `mask` and rotates the screen to `preferred` (e.g. landscape for full-screen video).
-    static func set(_ newMask: UIInterfaceOrientationMask, rotateTo preferred: UIInterfaceOrientationMask) {
+    /// Allows `mask` and optionally rotates the screen to `preferred` (e.g. landscape for full-screen video).
+    static func set(_ newMask: UIInterfaceOrientationMask = .allButUpsideDown, rotateTo preferred: UIInterfaceOrientationMask? = nil) {
         mask = newMask
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
         // The screen on top (e.g. the full-screen cover) decides which orientations are allowed
@@ -45,7 +45,9 @@ enum OrientationLock {
         while let presented = top?.presentedViewController { top = presented }
         top?.setNeedsUpdateOfSupportedInterfaceOrientations()
         scene.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
-        requestRotation(scene: scene, to: preferred, attemptsLeft: 5)
+        if let preferred = preferred {
+            requestRotation(scene: scene, to: preferred, attemptsLeft: 5)
+        }
     }
     
     /// UIKit only accepts the rotation once the new screen (e.g. the full-screen cover) has finished

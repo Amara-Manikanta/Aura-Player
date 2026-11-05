@@ -54,9 +54,9 @@ public struct VideoFullScreenView: View {
             if !playing { withAnimation { showControls = true } }
             poke()
         }
-        // Turn the screen sideways while watching; everything else stays portrait
+        // Rotate to landscape when entering full-screen video, but keep all orientations unlocked
         .onAppear { OrientationLock.set(.allButUpsideDown, rotateTo: .landscapeRight) }
-        .onDisappear { OrientationLock.set(.portrait, rotateTo: .portrait) }
+        .onDisappear { OrientationLock.set(.allButUpsideDown) }
     }
     
     /// Restart the auto-hide countdown
