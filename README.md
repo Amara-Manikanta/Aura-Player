@@ -1,127 +1,144 @@
 # 🎵 Aura Player
 
 <p align="center">
-  <img src="screenshots/01_full_player.png" width="280" alt="Aura Player iOS"/>
+  <img src="screenshots/01_full_player.png" width="280" alt="Aura Player on iPhone"/>
 </p>
 
 <p align="center">
-  <b>A sleek, AMOLED dark-themed music streaming ecosystem for iOS, macOS, and Android.</b><br/>
-  Seamlessly combines YouTube streaming, synchronized karaoke lyrics, real-time audio visualization, and intelligent recommendation algorithms.
+  <b>A dark, glassy music player for iPhone, Mac and Android.</b><br/>
+  Plays your songs from YouTube, shows synced lyrics you can write yourself, and keeps your library in step across your devices.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20macOS%20%7C%20Android-blue?style=for-the-badge&logo=apple" />
-  <img src="https://img.shields.io/badge/Language-Swift%206%20%7C%20Kotlin-F05138?style=for-the-badge&logo=swift" />
-  <img src="https://img.shields.io/badge/Theme-AMOLED%20Dark%20%230D0D11-black?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Android%20APK-Download%20v1.0.0-34D399?style=for-the-badge&logo=android&logoColor=white" />
+  <img src="https://img.shields.io/badge/Language-Swift%20%7C%20Kotlin-F05138?style=for-the-badge&logo=swift" />
+  <img src="https://img.shields.io/badge/UI-SwiftUI%20%7C%20Jetpack%20Compose-black?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-MIT-34D399?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <a href="https://amara-manikanta.github.io/Aura-Player/"><b>🌐 Official Website & Direct APK Download</b></a> •
-  <a href="https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk"><b>⬇️ Direct APK Link (25 MB)</b></a>
+  <a href="https://amara-manikanta.github.io/Aura-Player/"><b>🌐 Website & Android APK</b></a> •
+  <a href="https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk"><b>⬇️ Direct APK link</b></a>
 </p>
 
 ---
 
-## 📸 Screenshots Showcase
+## 📸 Screenshots
 
 <p align="center">
-  <img src="screenshots/01_full_player.png" width="31%" alt="Full Player (Audio/Video/Lyrics)"/>
-  <img src="screenshots/02_home_feed.png" width="31%" alt="Home Feed & MiniPlayer"/>
-  <img src="screenshots/03_library_playlists.png" width="31%" alt="Library & 17 Playlists"/>
+  <img src="screenshots/01_full_player.png" width="31%" alt="Full player: audio, video and lyrics"/>
+  <img src="screenshots/02_home_feed.png" width="31%" alt="Home and mini player"/>
+  <img src="screenshots/03_library_playlists.png" width="31%" alt="Library and playlists"/>
 </p>
 
 <p align="center">
-  <img src="screenshots/04_search_suggestions.png" width="46%" alt="Live YouTube Search"/>
-  <img src="screenshots/05_artists_catalog.png" width="46%" alt="Singers & Artists Catalog"/>
+  <img src="screenshots/04_search_suggestions.png" width="46%" alt="Search"/>
+  <img src="screenshots/05_artists_catalog.png" width="46%" alt="Artists"/>
 </p>
 
 ---
 
-## 🌟 Key Highlights
+## ✨ Features
 
-### 🎨 Dual Theme Engine: Modern AMOLED & Sansa e260 Retro
-- **Modern AMOLED Theme**: Built with a true black `#0D0D11` background and warm ambient gradients designed specifically for Super Retina displays, featuring the signature **Echo Coral** (`#ED5564`) primary theme with glowing frosted glass controls.
-- **SanDisk Sansa e260 Retro Theme**: Transforms the Now Playing player into an authentic 2000s SanDisk Sansa e260 MP3 player featuring:
-  - Brushed titanium/gunmetal metallic chassis with chamfered highlights.
-  - Glossy LCD color display with live retro 8-band graphic equalizer spectrum bars.
-  - The iconic **Interactive Virtual Rotator (Scroll Wheel)** with its **glowing electric neon blue ring** (`#00D4FF`), full circular touch-drag gesture tracking, and mechanical tactile haptic clicks (`Haptics.light()`) for time scrubbing and volume adjustment!
-  - Physical-style hardware buttons (`|<<`, `▶ ||`, `>>|`, `MENU`, `VOL/SCRUB`, `FAV`).
-  - Configurable in the new **Settings & Themes** menu.
+### Playing music
+- **Audio, Video and Lyrics views** for every song. Switch without losing your place.
+- **Background playback and lock-screen controls** on iPhone (Now Playing info, play/pause/next/previous).
+- **Full-screen video** with fit/fill, auto-hiding controls and 👍 / 👎 buttons.
+- **Right / wrong video feedback.** 👍 pins the video for a song; 👎 skips to the next best match and never picks that one again.
+- **Change Video Link** for any song, saved to every copy of it.
+- **Start and end times** per song, to skip intros and outros.
+- **Resume where you left off.** The last song and position survive a restart.
+- **Rename a song** (title and artist) from the player menu, applied to every copy.
+- **Copy song name** from the player menu.
 
-### 🎧 Unified Triple-Mode Player
-- **Audio Mode**: Displays high-res album artwork with a reactive audio visualizer.
-- **Video Mode**: Inline HD YouTube music video playback.
-- **Lyrics Mode**: Real-time synchronized karaoke lyrics with smooth auto-scroll.
+### Lyrics
+- **Synced lyrics** that highlight the current line and scroll along, shown centered. In the Video view they appear below the video.
+- **Write or fix lyrics yourself** (iPhone and Mac): type or paste the lyrics, then play the song and tap as each line starts to time it. Pasted `[mm:ss.xx]` lyrics (LRC) keep their times.
+- **Copy lyrics with their times** and paste them into another song.
+- Lines you didn't time still follow along: they get a time between their neighbours.
 
-### 📱 Background Playback & Lock Screen
-- Continues playing in the background when the app is minimized or the screen is locked.
-- Full `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` integration (Artwork, Scrubber, Play/Pause/Skip) for Lock Screen and Dynamic Island / Control Center.
+### Library
+- **Playlists:** create, rename, merge and delete; add songs by name or by YouTube link; search inside a playlist.
+- **Favorites, Most Played, Recently Added, New Releases and Artists** collections.
+- **For You** tab with recommendations.
+- **Apple Music import** (play counts, recently added songs) on iPhone and Mac.
+- **Backup and restore** the library through the Files app.
 
-### 📚 17 Playlists & 3,432 Bundled Tracks
-- Full cross-platform library preloaded into the application bundle with zero first-run setup required.
-- **Playlist Management**: Rename, delete, merge playlists, and remove individual tracks.
-- **Change Video Link**: Easily paste a custom YouTube link or search alternative official videos directly inside the Now Playing sheet.
-- **Audio Trimming**: Set custom start and end timestamps (`startTime`, `endTime`) for intro/outro skipping.
+### Sharing and syncing
+- **Share a song or playlist** as a WhatsApp message with a link. Opening the link shows the songs and an "Open in Aura Player" button.
+- **Import a shared playlist** by opening the link, or on iPhone by copying the message and tapping the import button in Library. Android has an Import Playlist dialog.
+- **Mac ↔ iPhone sync over Wi-Fi.** Compares both libraries and merges them instead of copying one over the other: play counts add up, newer edits win, and nothing is deleted without a trace (the Mac keeps backups). Devices pair with a code.
 
-### 💾 Backup & File Sharing (`On My iPhone → Aura Player`)
-- Direct integration with the native iOS **Files** app (`UIFileSharingEnabled`).
-- 1-tap **Export Library Backup** via `ShareLink` (AirDrop, iCloud Drive, Files).
-- 1-tap **Import Backup** and **Reset to Default Library**.
+### Look
+- **Liquid-glass interface** on all three apps.
+- **SanDisk Sansa e260 retro theme** on iPhone, with a virtual scroll wheel (Settings → Themes).
 
 ---
 
-## 🗂️ Monorepo Architecture
+## 🗂️ Repository layout
 
 ```
 Aura-Player/
-├── ios/                    # Native iOS App (SwiftUI, iOS 17+, iPhone 14 Pro / 15 / 16)
-│   ├── AuraPlayerIOS/      # App sources, Models, Views, Services
-│   │   ├── Assets.xcassets # 1024x1024 App Icon & Accent Color
-│   │   ├── Resources/      # Bundled library (17 playlists, 3,432 tracks)
-│   │   ├── Models/         # MediaTrack, Playlist
-│   │   ├── Services/       # PlaybackManager, YouTubeService, LyricsService, etc.
-│   │   └── Views/          # SwiftUI screens and player components
-│   └── AuraPlayerIOS.xcodeproj
-│
-├── macos/                  # Native macOS App (SwiftUI, AppKit, AVPlayer, yt-dlp)
-│   ├── Sources/AuraPlayer/ # Desktop views, Sidebar, MiniPlayer, Visualizer
-│   ├── Resources/          # macOS AppIcon.icns, assets
-│   └── Package.swift       # Swift Package Manager project definition
-│
-├── android/                # Native Android App (Kotlin, Jetpack Compose, Material 3)
-│   ├── app/src/main/       # Compose UI, Media3 ExoPlayer, Architecture components
-│   └── build.gradle.kts
-│
-└── screenshots/            # Hi-res UI screenshots showcase
+├── ios/        iPhone app (SwiftUI, iOS 17+)
+├── macos/      Mac app (SwiftUI, macOS 14+, built with Swift Package Manager)
+├── android/    Android app (Kotlin, Jetpack Compose, Media3, minSdk 26)
+├── shared/     Code shared by the Apple apps (the sync protocol)
+└── docs/       Website, APK download and the share-link page (GitHub Pages)
 ```
+
+| | iPhone | Mac | Android |
+|---|---|---|---|
+| Playback | YouTube player in a web view | Audio through AVPlayer (stream found with `yt-dlp`); video through a web view | Media3 and YouTube |
+| Custom lyrics editor | ✅ | ✅ | not yet |
+| Mac ↔ iPhone sync | ✅ | ✅ | – |
+| Share links | ✅ | ✅ | ✅ |
+| Import shared links | ✅ | not yet | ✅ |
 
 ---
 
-## 🚀 Building & Running
+## 🚀 Building
 
-### 📱 iOS
+### iPhone
 ```bash
 cd ios
 open AuraPlayerIOS.xcodeproj
-# Select your target device (e.g., iPhone 14 Pro / iPhone 15) and press Run (⌘R)
 ```
+Pick your iPhone or a simulator and press Run (⌘R). Running on a real iPhone needs your Apple ID set under Signing & Capabilities. With a free Apple ID the install expires after a few days and has to be reinstalled.
 
-### 💻 macOS
+### Mac
 ```bash
+brew install yt-dlp ffmpeg     # used to find audio streams
 cd macos
-swift build
-./build_app.sh
+./build_app.sh                 # builds AuraPlayer.app
+open AuraPlayer.app
 ```
+For development, `swift build` is enough.
 
-### 🤖 Android
+### Android
 ```bash
 cd android
 ./gradlew assembleDebug
-# Deploy to connected device or emulator via Android Studio
 ```
+The APK is written to `android/app/build/outputs/apk/debug/`.
+
+---
+
+## 🔄 Syncing a Mac and an iPhone
+
+1. Open the Mac app and choose **Sync with iPhone** in the sidebar. It shows a pairing code.
+2. On the iPhone, open **Settings → Sync with Mac**, allow Local Network access, and enter the code.
+3. Both devices must be on the same Wi-Fi. After the first pairing the iPhone syncs when you open the app.
+
+---
+
+## ⚠️ Good to know
+
+- **YouTube limits.** The Mac app asks YouTube for audio streams through `yt-dlp`. If you skip through many songs quickly, YouTube can answer "Sign in to confirm you're not a bot" for a while. Video view keeps working because it uses YouTube's embedded player.
+- **Songs come from YouTube,** so a song can occasionally match the wrong video. Use 👎 or Change Video Link to fix it.
+- **Offline downloads** are not supported.
 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+MIT. See [LICENSE](LICENSE).
