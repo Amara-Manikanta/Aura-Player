@@ -70,6 +70,7 @@ public struct RecentlyAddedView: View {
                             Button {
                                 Haptics.medium()
                                 if let first = allTracks.first {
+                                    playback.isShuffled = false
                                     playback.playTrack(first, inQueue: allTracks, context: .none)
                                 }
                             } label: {
@@ -87,11 +88,9 @@ public struct RecentlyAddedView: View {
                             
                             Button {
                                 Haptics.medium()
+                                guard let pick = allTracks.randomElement() else { return }
                                 playback.isShuffled = true
-                                let shuffled = allTracks.shuffled()
-                                if let first = shuffled.first {
-                                    playback.playTrack(first, inQueue: shuffled, context: .none)
-                                }
+                                playback.playTrack(pick, inQueue: allTracks, context: .none)
                             } label: {
                                 HStack {
                                     Image(systemName: "shuffle")

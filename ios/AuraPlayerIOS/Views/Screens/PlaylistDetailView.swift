@@ -89,6 +89,7 @@ public struct PlaylistDetailView: View {
                                 Button {
                                     Haptics.medium()
                                     if let first = currentPlaylist.tracks.first {
+                                        playback.isShuffled = false
                                         playback.playTrack(first, inQueue: currentPlaylist.tracks, context: .playlist(currentPlaylist.id))
                                     }
                                 } label: {
@@ -115,11 +116,8 @@ public struct PlaylistDetailView: View {
                                     if pool.count > 1, let current = playback.currentTrack {
                                         pool.removeAll { $0.id == current.id }
                                     }
-                                    pool.shuffle()
-                                    let pick = pool.first ?? currentPlaylist.tracks.first!
-                                    var fullQueue = currentPlaylist.tracks.filter { $0.id != pick.id }.shuffled()
-                                    fullQueue.insert(pick, at: 0)
-                                    playback.playTrack(pick, inQueue: fullQueue, context: .playlist(currentPlaylist.id))
+                                    let pick = pool.randomElement() ?? currentPlaylist.tracks.first!
+                                    playback.playTrack(pick, inQueue: currentPlaylist.tracks, context: .playlist(currentPlaylist.id))
                                 } label: {
                                     HStack(spacing: 8) {
                                         Image(systemName: "shuffle")

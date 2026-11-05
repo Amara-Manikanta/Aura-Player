@@ -158,11 +158,11 @@ public struct SearchView: View {
                                         isCurrent: isCur,
                                         isPlaying: playback.isPlaying,
                                         onTap: {
-                                            playback.playTrack(track, context: .none)
+                                            playback.playTrack(track, inQueue: searchResults.map(convertToMediaTrack), context: .none)
                                         },
                                         onPlayVideo: {
                                             playback.displayMode = .video
-                                            playback.playTrack(track, context: .none)
+                                            playback.playTrack(track, inQueue: searchResults.map(convertToMediaTrack), context: .none)
                                         },
                                         onAddToPlaylist: {
                                             trackForPlaylistSheet = track

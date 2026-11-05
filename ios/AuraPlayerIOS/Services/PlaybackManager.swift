@@ -52,6 +52,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     @Published public var queue: [MediaTrack] = []
     @Published public var originalQueue: [MediaTrack] = []
     @Published public var currentIndex: Int = 0
+    private var historyStack: [MediaTrack] = []
     
     // Global Persistent WKWebView Engine
     public var webView: WKWebView!
@@ -419,6 +420,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 stopTimeTracker();
                 window.webkit.messageHandlers.playerState.postMessage(event.data);
               } else if (event.data === 0) { // Ended
+                window.userWantsPlaying = false;
                 stopTimeTracker();
                 window.webkit.messageHandlers.playerState.postMessage(event.data);
               }
@@ -715,14 +717,21 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         
         if !tracks.isEmpty {
             self.originalQueue = tracks
-            self.queue = isShuffled ? tracks.shuffled() : tracks
-            if let idx = self.queue.firstIndex(where: { $0.id == track.id }) {
-                self.currentIndex = idx
+            if isShuffled {
+                var others = tracks.filter { $0.id != track.id }.shuffled()
+                others.insert(track, at: 0)
+                self.queue = others
+                self.currentIndex = 0
+            } else {
+                self.queue = tracks
+                self.currentIndex = tracks.firstIndex(where: { $0.id == track.id }) ?? 0
             }
-        } else if queue.isEmpty {
-            self.originalQueue = [track]
-            self.queue = [track]
-            self.currentIndex = 0
+        } else if !queue.contains(where: { $0.id == track.id }) {
+            self.originalQueue.append(track)
+            self.queue.append(track)
+            self.currentIndex = self.queue.count - 1
+        } else {
+            self.currentIndex = queue.firstIndex(where: { $0.id == track.id }) ?? 0
         }
         
         // Auto-resolve high-res artwork
@@ -750,10 +759,21 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 guard self.currentTrack?.id == track.id else { return }
                 if let vid {
                     self.currentTrack?.youtubeId = vid
+                    if let idx = self.queue.firstIndex(where: { $0.id == track.id }) {
+                        self.queue[idx].youtubeId = vid
+                    }
+                    if let idx = self.originalQueue.firstIndex(where: { $0.id == track.id }) {
+                        self.originalQueue[idx].youtubeId = vid
+                    }
+                    PlaylistStore.shared.setVideo(trackId: track.id, videoId: vid)
                     self.loadVideo(id: vid, startAt: startAt)
                 } else {
                     self.isPlaying = false
                     self.errorMessage = "Couldn't find \"\(track.title)\" on YouTube."
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    if self.currentTrack?.id == track.id {
+                        self.playNext()
+                    }
                 }
             }
         }
@@ -777,7 +797,7 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
                 loadVideo(id: vid, autoPlay: true)
             } else {
                 // e.g. the song shown at launch: find its video, then play
-                playTrack(track, inQueue: queue)
+                playTrack(track)
                 return
             }
         } else {
@@ -806,12 +826,26 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     
     public func playNext() {
         guard !queue.isEmpty else { return }
+        if let current = currentTrack {
+            historyStack.append(current)
+            if historyStack.count > 50 { historyStack.removeFirst() }
+        }
         if currentIndex + 1 < queue.count {
             currentIndex += 1
-            playTrack(queue[currentIndex], inQueue: queue)
+            playTrack(queue[currentIndex])
         } else if repeatMode == 1 {
+            if isShuffled {
+                queue = originalQueue.shuffled()
+            } else {
+                queue = originalQueue
+            }
             currentIndex = 0
-            playTrack(queue[0], inQueue: queue)
+            if let first = queue.first {
+                playTrack(first)
+            }
+        } else {
+            pause()
+            currentTime = 0
         }
     }
     
@@ -821,10 +855,15 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             seek(to: start)
             return
         }
+        if let prev = historyStack.popLast(), let idx = queue.firstIndex(where: { $0.id == prev.id }) {
+            currentIndex = idx
+            playTrack(prev)
+            return
+        }
         guard !queue.isEmpty else { return }
         if currentIndex > 0 {
             currentIndex -= 1
-            playTrack(queue[currentIndex], inQueue: queue)
+            playTrack(queue[currentIndex])
         } else {
             seek(to: currentTrack?.startTime ?? 0)
         }
@@ -842,8 +881,6 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             resume()
             return
         }
-        isPlaying = false
-        BackgroundAudioKeepAlive.shared.stop()
         playNext()
     }
     
@@ -851,13 +888,15 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         isShuffled.toggle()
         defer { rememberPlayback() }
         guard let current = currentTrack else { return }
+        let base = originalQueue.isEmpty ? queue : originalQueue
+        originalQueue = base
         if isShuffled {
-            var shuffled = originalQueue.filter { $0.id != current.id }.shuffled()
+            var shuffled = base.filter { $0.id != current.id }.shuffled()
             shuffled.insert(current, at: 0)
             queue = shuffled
             currentIndex = 0
         } else {
-            queue = originalQueue
+            queue = base
             if let idx = queue.firstIndex(where: { $0.id == current.id }) {
                 currentIndex = idx
             }
