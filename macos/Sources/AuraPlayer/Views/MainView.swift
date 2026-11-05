@@ -92,16 +92,18 @@ public struct MainView: View {
                             Color.black.ignoresSafeArea()
                         }
                         
-                        if playback.videoInMiniPlayer && isVideoActive {
-                            VStack(spacing: 12) {
-                                Image(systemName: "pip")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.secondary)
-                                Text("Playing in Mini Player")
-                                    .font(.headline)
-                                Text("Switch the mini player to Music, or close it, to watch here.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        if playback.videoInMiniPlayer {
+                            if isVideoActive {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "pip")
+                                        .font(.system(size: 44))
+                                        .foregroundStyle(.secondary)
+                                    Text("Playing in Mini Player")
+                                        .font(.headline)
+                                    Text("Switch the mini player to Music, or close it, to watch here.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         } else {
                             VideoPlayerView(track: current, playback: playback)

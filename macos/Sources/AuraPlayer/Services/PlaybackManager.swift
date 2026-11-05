@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import AVFoundation
 import MediaPlayer
 import Observation
@@ -84,6 +85,7 @@ public final class PlaybackManager {
         currentTrack?.sourceType == .youtube
     }
     public var onWebPlayerAction: ((WebPlayerAction) -> Void)?
+    public var onUpdateWebMetadata: ((String, String, String?) -> Void)?
     /// Which web player currently owns `onWebPlayerAction` (main window or mini player)
     public var webPlayerOwner: ObjectIdentifier?
     /// When the web player last started loading a video; the old video's "paused" right after is ignored
@@ -864,13 +866,30 @@ public final class PlaybackManager {
             return
         }
         
-        let info: [String: Any] = [
+        if isYouTubePlayback {
+            // When streaming from YouTube, WKWebView owns the active audio session and handles
+            // system media keys via its mediaSession action handlers.
+            // Clearing the native MPNowPlayingInfoCenter prevents macOS from displaying a
+            // duplicate, inactive/paused card in Control Center / menu bar Now Playing!
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            MPNowPlayingInfoCenter.default().playbackState = .stopped
+            onUpdateWebMetadata?(track.title, track.artist, currentArtworkURL ?? track.thumbnailURL)
+            return
+        }
+        
+        var info: [String: Any] = [
             MPMediaItemPropertyTitle: track.title,
             MPMediaItemPropertyArtist: track.artist,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
+        
+        if let artUrlStr = currentArtworkURL ?? track.thumbnailURL, let artUrl = URL(string: artUrlStr),
+           let img = NSImage(contentsOf: artUrl) {
+            let artwork = MPMediaItemArtwork(boundsSize: img.size) { _ in img }
+            info[MPMediaItemPropertyArtwork] = artwork
+        }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         // macOS routes the keyboard's media keys only to apps that publish a playback state

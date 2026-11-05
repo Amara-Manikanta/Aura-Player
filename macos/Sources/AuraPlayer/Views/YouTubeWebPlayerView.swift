@@ -66,6 +66,9 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
         let startSec = Int(max(0, position))
         playback.webVideoLoadStartedAt = Date()
         AppLog.log("webplayer", "loading video \(id) at \(startSec)s for \"\(playback.currentTrack?.title ?? "-")\"")
+        let escTitle = (playback.currentTrack?.title ?? "").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
+        let escArtist = (playback.currentTrack?.artist ?? "").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
+        let escArt = (playback.currentArtworkURL ?? playback.currentTrack?.thumbnailURL ?? "").replacingOccurrences(of: "\"", with: "\\\"")
         let html = """
         <!DOCTYPE html>
         <html>
@@ -97,6 +100,27 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
             var isReady = false;
             var timeInterval = null;
             var expectedVideoId = '\(id)';
+            window.appSongMetadata = {
+              title: "\(escTitle)",
+              artist: "\(escArtist)",
+              artwork: "\(escArt)"
+            };
+
+            function setAppMediaMetadata() {
+              if ('mediaSession' in navigator && window.appSongMetadata) {
+                try {
+                  navigator.mediaSession.metadata = new MediaMetadata({
+                    title: window.appSongMetadata.title || '',
+                    artist: window.appSongMetadata.artist || '',
+                    album: 'Aura Player',
+                    artwork: window.appSongMetadata.artwork ? [
+                      { src: window.appSongMetadata.artwork, sizes: '512x512', type: 'image/jpeg' }
+                    ] : []
+                  });
+                  navigator.mediaSession.playbackState = (player && player.getPlayerState && player.getPlayerState() === 1) ? 'playing' : 'paused';
+                } catch (e) {}
+              }
+            }
 
             // True while the player is on a different video than the one asked for (YouTube can move on to
             // a "next" video by itself): its time and length aren't this song's, so they're not reported
@@ -159,6 +183,7 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
             function onPlayerReady(event) {
               isReady = true;
               fitPlayer();
+              setAppMediaMetadata();
               event.target.playVideo();
               startTimeTracker();
             }
@@ -168,7 +193,12 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
                 window.webkit.messageHandlers.playerState.postMessage(event.data);
               }
               if (event.data === 1) { // PLAYING
+                setAppMediaMetadata();
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
                 startTimeTracker();
+              } else if (event.data === 2) { // PAUSED
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                stopTimeTracker();
               } else {
                 stopTimeTracker();
               }
@@ -203,9 +233,11 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
 
             function play() {
               if (player && player.playVideo) player.playVideo();
+              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
             }
             function pause() {
               if (player && player.pauseVideo) player.pauseVideo();
+              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
             }
             function seek(t) {
               if (player && player.seekTo) player.seekTo(t, true);
@@ -245,6 +277,17 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
                     webView.evaluateJavaScript("setVolume(\(volumePercent));")
                 }
             }
+            playback.onUpdateWebMetadata = { [weak self] title, artist, art in
+                guard let self = self, let webView = self.webView else { return }
+                let escTitle = title.replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
+                let escArtist = artist.replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
+                let escArt = (art ?? "").replacingOccurrences(of: "\"", with: "\\\"")
+                let js = """
+                window.appSongMetadata = { title: "\(escTitle)", artist: "\(escArtist)", artwork: "\(escArt)" };
+                if (typeof setAppMediaMetadata === 'function') setAppMediaMetadata();
+                """
+                webView.evaluateJavaScript(js)
+            }
         }
         
         func cleanup() {
@@ -252,6 +295,7 @@ public struct YouTubeWebPlayerView: NSViewRepresentable {
             // window and the mini player, the new player connects before the old one goes away
             guard parent.playback.webPlayerOwner == ObjectIdentifier(self) else { return }
             parent.playback.onWebPlayerAction = nil
+            parent.playback.onUpdateWebMetadata = nil
             parent.playback.webPlayerOwner = nil
         }
         
