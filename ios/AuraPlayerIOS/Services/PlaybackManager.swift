@@ -662,6 +662,43 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
             self?.seek(to: posEvent.positionTime)
             return .success
         }
+        commandCenter.skipForwardCommand.preferredIntervals = [15]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            guard let self, let skipEvent = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
+            let target = min(self.currentTime + skipEvent.interval, self.duration)
+            self.seek(to: target)
+            return .success
+        }
+        commandCenter.skipBackwardCommand.preferredIntervals = [15]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self, let skipEvent = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
+            let target = max(self.currentTime - skipEvent.interval, 0)
+            self.seek(to: target)
+            return .success
+        }
+        commandCenter.changeShuffleModeCommand.addTarget { [weak self] event in
+            guard let self, let shuffleEvent = event as? MPChangeShuffleModeCommandEvent else { return .commandFailed }
+            let wantsShuffle = (shuffleEvent.shuffleType != .off)
+            if wantsShuffle != self.isShuffled {
+                self.toggleShuffle()
+            }
+            return .success
+        }
+        commandCenter.changeRepeatModeCommand.addTarget { [weak self] event in
+            guard let self, let repeatEvent = event as? MPChangeRepeatModeCommandEvent else { return .commandFailed }
+            switch repeatEvent.repeatType {
+            case .off: self.repeatMode = 0
+            case .all: self.repeatMode = 1
+            case .one: self.repeatMode = 2
+            @unknown default: break
+            }
+            return .success
+        }
+        commandCenter.likeCommand.addTarget { [weak self] _ in
+            guard let track = self?.currentTrack else { return .commandFailed }
+            PlaylistStore.shared.toggleFavorite(track: track)
+            return .success
+        }
     }
     
     public func updateNowPlayingInfo() {
