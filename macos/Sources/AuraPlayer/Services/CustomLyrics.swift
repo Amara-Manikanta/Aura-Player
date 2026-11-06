@@ -94,8 +94,17 @@ enum CustomLyricsFile {
         write(all)
     }
     
+    /// Replaces the entire dictionary after a Wi-Fi sync and permanently writes it to disk atomically
+    static func replaceAll(_ all: [String: Entry]) {
+        write(all)
+    }
+    
     private static func write(_ all: [String: Entry]) {
-        if let data = try? JSONEncoder().encode(all) { try? data.write(to: url, options: .atomic) }
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(all) {
+            try? data.write(to: url, options: .atomic)
+        }
     }
     
     /// As the player shows them: synced when every line has a time, otherwise plain text

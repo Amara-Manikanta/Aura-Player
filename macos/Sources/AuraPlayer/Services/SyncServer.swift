@@ -182,10 +182,11 @@ public final class SyncServer {
             return (reply("getLyrics", revision: SyncWire.revision(of: data)), data)
             
         case "putLyrics":
-            guard (try? JSONSerialization.jsonObject(with: body)) is [String: Any] else {
+            guard let incoming = try? JSONDecoder().decode([String: CustomLyricsFile.Entry].self, from: body) else {
                 return (reply("putLyrics", ok: false, error: "Unreadable lyrics"), Data())
             }
-            try? body.write(to: lyricsURL, options: .atomic)
+            CustomLyricsFile.replaceAll(incoming)
+            PlaybackManager.shared.reloadLyrics()
             return (reply("putLyrics"), Data())
             
         default:

@@ -146,23 +146,83 @@ enum LibraryMerge {
     
     static func mergeLyrics(base: Lyrics, local: Lyrics, remote: Lyrics) -> Lyrics {
         var result: Lyrics = [:]
+        let now = Date().timeIntervalSince1970
+        
         for key in Set(local.keys).union(remote.keys) {
             let l = local[key], r = remote[key], b = base[key]
+            var chosen: CustomLyricsStore.Entry
+            
             switch (l, r) {
             case let (l?, r?):
-                if l.sameContent(r) { result[key] = l }
-                else if let b, l.sameContent(b) { result[key] = r }
-                else if let b, r.sameContent(b) { result[key] = l }
-                else { result[key] = (l.modified ?? 0) >= (r.modified ?? 0) ? l : r }
+                if l.sameContent(r) {
+                    // Content is identical: preserve whichever has the newer timestamp
+                    let lMod = l.modified ?? 0
+                    let rMod = r.modified ?? 0
+                    chosen = rMod > lMod ? r : l
+                } else {
+                    let lMod = l.modified ?? 0
+                    let rMod = r.modified ?? 0
+                    
+                    if rMod > lMod {
+                        // Latest update was on macOS -> keep macOS version
+                        chosen = r
+                    } else if lMod > rMod {
+                        // Latest update was on iOS -> keep iOS version
+                        chosen = l
+                    } else {
+                        // Modified timestamps are equal or unset:
+                        // 1. If one side changed relative to base and the other didn't, pick the edited side
+                        if let b {
+                            if !r.sameContent(b) && l.sameContent(b) {
+                                chosen = r
+                            } else if !l.sameContent(b) && r.sameContent(b) {
+                                chosen = l
+                            } else {
+                                chosen = pickRicher(l: l, r: r)
+                            }
+                        } else {
+                            chosen = pickRicher(l: l, r: r)
+                        }
+                    }
+                }
+                
             case let (l?, nil):
-                if let b, b.sameContent(l) { continue }   // removed on the Mac
-                result[key] = l
+                // Lyrics exist on iOS only:
+                // Only consider it removed on the Mac if it was originally in base, untouched on iOS,
+                // and base had a valid timestamp indicating a deliberate prior sync state.
+                if let b, b.sameContent(l), (b.modified ?? 0) >= (l.modified ?? 0), (b.modified ?? 0) > 0 {
+                    continue
+                }
+                chosen = l
+                
             case let (nil, r?):
-                if let b, b.sameContent(r) { continue }   // removed here
-                result[key] = r
-            default: break
+                // Lyrics exist on macOS only:
+                // Only consider it removed on iOS if it was originally in base, untouched on Mac,
+                // and base had a valid timestamp indicating a deliberate prior sync state.
+                if let b, b.sameContent(r), (b.modified ?? 0) >= (r.modified ?? 0), (b.modified ?? 0) > 0 {
+                    continue
+                }
+                chosen = r
+                
+            default:
+                continue
             }
+            
+            // Ensure the winning entry has a permanent valid timestamp
+            if (chosen.modified ?? 0) <= 0 {
+                chosen.modified = now
+            }
+            result[key] = chosen
         }
         return result
+    }
+    
+    private static func pickRicher(l: CustomLyricsStore.Entry, r: CustomLyricsStore.Entry) -> CustomLyricsStore.Entry {
+        let lTimed = l.times.compactMap { $0 }.count
+        let rTimed = r.times.compactMap { $0 }.count
+        if rTimed > lTimed { return r }
+        if lTimed > rTimed { return l }
+        if r.lines.count > l.lines.count { return r }
+        return l
     }
 }
