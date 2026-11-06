@@ -1,10 +1,27 @@
 import SwiftUI
 
+public enum SearchScope: String, CaseIterable, Identifiable {
+    case music = "Music"
+    case youtube = "YouTube Direct"
+    case devotional = "Devotional"
+    
+    public var id: String { rawValue }
+    
+    public var icon: String {
+        switch self {
+        case .music: return "music.note"
+        case .youtube: return "play.rectangle.fill"
+        case .devotional: return "sparkles"
+        }
+    }
+}
+
 public struct SearchView: View {
     @ObservedObject var playlistStore: PlaylistStore
     @ObservedObject var playback: PlaybackManager
     
     @State private var searchText: String = ""
+    @State private var searchScope: SearchScope = .music
     @State private var isSearching: Bool = false
     @State private var searchResults: [YouTubeSearchResult] = []
     @State private var suggestions: [String] = []
@@ -19,7 +36,7 @@ public struct SearchView: View {
         self.playback = playback
     }
     
-    private let quickTags = ["Top Hits", "The Weeknd", "Ed Sheeran", "Telugu Hits", "Lo-Fi Chill", "Rock", "Bollywood"]
+    private let quickTags = ["Devotional Songs", "Ayyappa Swamy", "Top Hits", "Telugu Hits", "Lo-Fi Chill", "Bollywood", "Shiv Stuti"]
     
     public var body: some View {
         NavigationStack {
@@ -58,6 +75,16 @@ public struct SearchView: View {
                     .liquidGlass(cornerRadius: 14)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+                    
+                    // Search Scope Selector (Music / YouTube Direct / Devotional)
+                    HStack(spacing: 6) {
+                        ForEach(SearchScope.allCases) { scope in
+                            scopeButton(scope)
+                        }
+                    }
+                    .padding(4)
+                    .liquidGlass(cornerRadius: 14)
+                    .padding(.horizontal, 16)
                     
                     // Language of the version to find (re-runs the search)
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -219,6 +246,36 @@ public struct SearchView: View {
         }
     }
     
+    private func scopeButton(_ scope: SearchScope) -> some View {
+        let selected: Bool = (searchScope == scope)
+        let textColor: Color = selected ? Color.white : AuraTheme.textSecondary
+        return Button {
+            Haptics.selection()
+            searchScope = scope
+            if !searchText.isEmpty {
+                performSearch(query: searchText)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: scope.icon)
+                    .font(.system(size: 11, weight: .bold))
+                Text(scope.rawValue)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundColor(textColor)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background {
+                if selected {
+                    AuraTheme.primaryGradient.clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Color.white.opacity(0.06).clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+    }
+    
     private func performSearch(query: String) {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
@@ -226,10 +283,24 @@ public struct SearchView: View {
         suggestions = []
         isSearching = true
         Task {
-            // Same ranking as the Mac app: official video song first; lyric videos, Shorts, covers dropped
-            let lang = searchLanguage == "Any" ? nil : searchLanguage.lowercased()
-            let res = (try? await YouTubeService.shared.languageAwareSearch(
-                query: q, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
+            let res: [YouTubeSearchResult]
+            switch searchScope {
+            case .music:
+                // Official video song ranking with language awareness
+                let lang = searchLanguage == "Any" ? nil : searchLanguage.lowercased()
+                res = (try? await YouTubeService.shared.languageAwareSearch(
+                    query: q, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
+            case .youtube:
+                // Direct unfiltered YouTube search without studio music bias
+                res = await YouTubeService.shared.search(query: q)
+            case .devotional:
+                // Devotional mode: preserve audio jukeboxes, stotrams, keertanas, mantras & bhajans
+                let lower = q.lowercased()
+                let devKeywords = ["devotional", "bhajan", "stotram", "stuti", "keertana", "kirtan", "aarti", "chalisa", "mantra", "suprabhatam", "ayyappa", "shiva", "venkateswara", "ram", "krishna", "durga", "hanuman", "song"]
+                let hasDevWord = devKeywords.contains { lower.contains($0) }
+                let devQuery = hasDevWord ? q : "\(q) devotional songs"
+                res = await YouTubeService.shared.search(query: devQuery)
+            }
             await MainActor.run {
                 self.searchResults = res
                 self.isSearching = false

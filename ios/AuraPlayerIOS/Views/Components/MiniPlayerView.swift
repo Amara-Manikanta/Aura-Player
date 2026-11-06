@@ -105,6 +105,7 @@ public struct MiniPlayerView: View {
                     .padding(.vertical, 8)
                 }
                 .frame(height: 64)
+                .buttonStyle(AuraPlainButtonStyle())
                 .liquidGlass(cornerRadius: 22, interactive: true)
                 .shadow(color: Color.black.opacity(0.25), radius: 14, x: 0, y: 8)
                 .contentShape(Rectangle())

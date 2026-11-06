@@ -175,7 +175,7 @@ public struct TrackRowView: View {
             .background(isCurrent ? AuraTheme.primary.opacity(0.12) : Color.clear)
             .cornerRadius(12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraPlainButtonStyle())
         .sheet(isPresented: $showChangeVideo) {
             ChangeVideoLinkSheet(track: track, store: PlaylistStore.shared, playback: PlaybackManager.shared)
         }

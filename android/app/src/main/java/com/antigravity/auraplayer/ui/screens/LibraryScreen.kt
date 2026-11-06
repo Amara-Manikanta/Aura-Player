@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.model.Playlist
+import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.components.ImportPlaylistDialog
 import com.antigravity.auraplayer.ui.components.glass
 import com.antigravity.auraplayer.ui.theme.*
@@ -28,6 +29,7 @@ import com.antigravity.auraplayer.ui.theme.*
 @Composable
 fun LibraryScreen(
     repository: PlaylistRepository,
+    playbackManager: PlaybackManager,
     onSelectPlaylist: (String) -> Unit,
     onMostPlayed: () -> Unit,
     onRecentlyAdded: () -> Unit,
@@ -36,6 +38,7 @@ fun LibraryScreen(
     onSettings: () -> Unit
 ) {
     val playlists by repository.playlists.collectAsState()
+    val playerTheme by playbackManager.playerTheme.collectAsState()
     val counts = remember(playlists) {
         Triple(repository.mostPlayedTracks.size, repository.allUniqueTracks.size, repository.allArtists.size)
     }
@@ -65,6 +68,16 @@ fun LibraryScreen(
         item { LibraryLink(Icons.Default.NewReleases, Color(0xFFE38CF2), "New Releases", "Latest YouTube music drops", onNewReleases) }
         item { LibraryLink(Icons.Default.Mic, Color(0xFF8FB8FF), "Singers & Artists", "%,d artists".format(counts.third), onArtists) }
         item { LibraryLink(Icons.Default.CloudDownload, Color(0xFF2BC5B4), "Import Playlist", "YouTube, Spotify, JioSaavn, Gaana...") { showImportDialog = true } }
+        item {
+            LibraryLink(
+                icon = if (playerTheme == PlayerTheme.SANSA) Icons.Default.Radio else Icons.Default.PhoneAndroid,
+                tint = if (playerTheme == PlayerTheme.SANSA) SansaTheme.NeonBlue else NeonPurple,
+                title = if (playerTheme == PlayerTheme.SANSA) "Sansa e260 Retro Active" else "Modern Glass Active",
+                subtitle = "Switch between Modern Glass and Sansa e260 Retro"
+            ) {
+                playbackManager.setPlayerTheme(if (playerTheme == PlayerTheme.SANSA) PlayerTheme.MODERN else PlayerTheme.SANSA)
+            }
+        }
 
         item {
             Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {

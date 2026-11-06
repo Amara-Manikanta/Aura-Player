@@ -38,7 +38,8 @@ fun FullPlayerSheet(
     onDismiss: () -> Unit,
     onChangeVideo: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    onEnterPiP: () -> Unit
+    onEnterPiP: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val repository = remember { PlaylistRepository.getInstance(context) }
@@ -53,9 +54,23 @@ fun FullPlayerSheet(
     val plainLyrics by playbackManager.plainLyrics.collectAsState()
     val currentLyricIndex by playbackManager.currentLyricIndex.collectAsState()
     val artworkUrl by playbackManager.artworkUrl.collectAsState()
+    val playerTheme by playbackManager.playerTheme.collectAsState()
     var showLyricsEditor by remember { mutableStateOf(false) }
+    var showFullScreenVideo by remember { mutableStateOf(false) }
+    var showFullScreenLyrics by remember { mutableStateOf(false) }
     repository.playlists.collectAsState().value   // redraw when favourites / saved video change
     val t = track ?: return
+
+    if (playerTheme == PlayerTheme.SANSA) {
+        SansaPlayerView(
+            playbackManager = playbackManager,
+            repository = repository,
+            onDismiss = onDismiss,
+            onOpenSettings = { onOpenSettings?.invoke() },
+            onChangeTheme = { playbackManager.setPlayerTheme(PlayerTheme.MODERN) }
+        )
+        return
+    }
 
     val artworkScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.88f,
@@ -84,15 +99,23 @@ fun FullPlayerSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     if (displayMode == DisplayMode.LYRICS) {
-                        LyricsView(
-                            syncedLyrics = syncedLyrics,
-                            plainLyrics = plainLyrics,
-                            currentLyricIndex = currentLyricIndex,
-                            onSeekToTime = { playbackManager.seekTo(it) },
-                            isPlaying = isPlaying,
-                            track = t,
-                            onAddLyrics = { showLyricsEditor = true }
-                        )
+                        Box(Modifier.fillMaxSize()) {
+                            LyricsView(
+                                syncedLyrics = syncedLyrics,
+                                plainLyrics = plainLyrics,
+                                currentLyricIndex = currentLyricIndex,
+                                onSeekToTime = { playbackManager.seekTo(it) },
+                                isPlaying = isPlaying,
+                                track = t,
+                                onAddLyrics = { showLyricsEditor = true }
+                            )
+                            IconButton(
+                                onClick = { showFullScreenLyrics = true },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                            ) {
+                                Icon(Icons.Default.Fullscreen, contentDescription = "Full Screen", tint = TextSecondary)
+                            }
+                        }
                     } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
                         Column(
                             Modifier.fillMaxSize(),
@@ -102,10 +125,20 @@ fun FullPlayerSheet(
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
                                 VideoPlayerView(playbackManager = playbackManager)
                             }
-                            TextButton(onClick = onEnterPiP) {
-                                Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Picture in Picture", color = TextSecondary)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = { showFullScreenVideo = true }) {
+                                    Icon(Icons.Default.Fullscreen, null, tint = TextSecondary)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Full Screen", color = TextSecondary)
+                                }
+                                TextButton(onClick = onEnterPiP) {
+                                    Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("PiP", color = TextSecondary)
+                                }
                             }
                         }
                     } else {
@@ -142,7 +175,7 @@ fun FullPlayerSheet(
                             onSelect = { playbackManager.setDisplayMode(DisplayMode.entries[it]) },
                             modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
                         )
-                        CurrentSongMenu(playbackManager, onChangeVideo, onAddToPlaylist, tint = TextPrimary)
+                        CurrentSongMenu(playbackManager, onChangeVideo, onAddToPlaylist, onOpenSettings = onOpenSettings, tint = TextPrimary)
                     }
 
                     // Title & Artist & Buttons
@@ -247,22 +280,30 @@ fun FullPlayerSheet(
                     onSelect = { playbackManager.setDisplayMode(DisplayMode.entries[it]) },
                     modifier = Modifier.weight(1f).padding(horizontal = 6.dp)
                 )
-                CurrentSongMenu(playbackManager, onChangeVideo, onAddToPlaylist, tint = TextPrimary)
+                CurrentSongMenu(playbackManager, onChangeVideo, onAddToPlaylist, onOpenSettings = onOpenSettings, tint = TextPrimary)
             }
 
             Spacer(Modifier.height(16.dp))
 
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 if (displayMode == DisplayMode.LYRICS) {
-                    LyricsView(
-                        syncedLyrics = syncedLyrics,
-                        plainLyrics = plainLyrics,
-                        currentLyricIndex = currentLyricIndex,
-                        onSeekToTime = { playbackManager.seekTo(it) },
-                        isPlaying = isPlaying,
-                        track = t,
-                        onAddLyrics = { showLyricsEditor = true }
-                    )
+                    Box(Modifier.fillMaxSize()) {
+                        LyricsView(
+                            syncedLyrics = syncedLyrics,
+                            plainLyrics = plainLyrics,
+                            currentLyricIndex = currentLyricIndex,
+                            onSeekToTime = { playbackManager.seekTo(it) },
+                            isPlaying = isPlaying,
+                            track = t,
+                            onAddLyrics = { showLyricsEditor = true }
+                        )
+                        IconButton(
+                            onClick = { showFullScreenLyrics = true },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                        ) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = "Full Screen Lyrics", tint = TextSecondary)
+                        }
+                    }
                 } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
                     val hasLyrics = !syncedLyrics.isNullOrEmpty() || !plainLyrics.isNullOrBlank()
                     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
@@ -270,10 +311,20 @@ fun FullPlayerSheet(
                         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
                             VideoPlayerView(playbackManager = playbackManager)
                         }
-                        TextButton(onClick = onEnterPiP) {
-                            Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Picture in Picture", color = TextSecondary)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { showFullScreenVideo = true }) {
+                                Icon(Icons.Default.Fullscreen, null, tint = TextSecondary)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Full Screen", color = TextSecondary)
+                            }
+                            TextButton(onClick = onEnterPiP) {
+                                Icon(Icons.Default.PictureInPictureAlt, null, tint = TextSecondary)
+                                Spacer(Modifier.width(4.dp))
+                                Text("PiP", color = TextSecondary)
+                            }
                         }
                         // The lyrics fill the space under the video, when there are any
                         if (hasLyrics) {
@@ -400,6 +451,25 @@ fun FullPlayerSheet(
                 track = t,
                 playbackManager = playbackManager,
                 onDismiss = { showLyricsEditor = false }
+            )
+        }
+
+        if (showFullScreenVideo) {
+            VideoFullScreenView(
+                playbackManager = playbackManager,
+                onDismiss = { showFullScreenVideo = false },
+                onEnterPiP = {
+                    showFullScreenVideo = false
+                    onEnterPiP()
+                }
+            )
+        }
+
+        if (showFullScreenLyrics) {
+            LyricsFullScreenView(
+                playbackManager = playbackManager,
+                repository = repository,
+                onDismiss = { showFullScreenLyrics = false }
             )
         }
     }

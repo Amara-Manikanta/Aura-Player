@@ -27,16 +27,19 @@ fun CurrentSongMenu(
     playbackManager: PlaybackManager,
     onChangeVideo: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
     tint: Color = TextSecondary
 ) {
     val context = LocalContext.current
     val repository = remember { PlaylistRepository.getInstance(context) }
     val track by playbackManager.currentTrack.collectAsState()
     val position by playbackManager.currentPosition.collectAsState()
+    val playerTheme by playbackManager.playerTheme.collectAsState()
     var open by remember { mutableStateOf(false) }
     var showTrim by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showLyricsEditor by remember { mutableStateOf(false) }
+    var showSleepTimer by remember { mutableStateOf(false) }
     val t = track ?: return
 
     IconButton(onClick = { open = true }) {
@@ -111,6 +114,34 @@ fun CurrentSongMenu(
             onClick = { open = false; repository.toggleFavorite(t) })
         DropdownMenuItem(text = { Text("Add to Playlist…") }, leadingIcon = { Icon(Icons.Default.PlaylistAdd, null) },
             onClick = { open = false; onAddToPlaylist() })
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = {
+                Text(if (playerTheme == PlayerTheme.SANSA) "Switch to Modern Glass" else "Switch to Sansa e260 Theme")
+            },
+            leadingIcon = {
+                Icon(if (playerTheme == PlayerTheme.SANSA) Icons.Default.PhoneAndroid else Icons.Default.Radio, null, tint = NeonPurple)
+            },
+            onClick = {
+                open = false
+                playbackManager.setPlayerTheme(if (playerTheme == PlayerTheme.SANSA) PlayerTheme.MODERN else PlayerTheme.SANSA)
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("Sleep Timer…") },
+            leadingIcon = { Icon(Icons.Default.Bedtime, null, tint = NeonPurple) },
+            onClick = { open = false; showSleepTimer = true }
+        )
+        if (onOpenSettings != null) {
+            DropdownMenuItem(
+                text = { Text("Player Settings…") },
+                leadingIcon = { Icon(Icons.Default.Settings, null) },
+                onClick = { open = false; onOpenSettings() }
+            )
+        }
+    }
+    if (showSleepTimer) {
+        SleepTimerDialog(playbackManager = playbackManager, onDismiss = { showSleepTimer = false })
     }
     if (showTrim) {
         TrimDialog(t, onSave = { s, e -> playbackManager.setTrim(s, e); showTrim = false }, onDismiss = { showTrim = false })

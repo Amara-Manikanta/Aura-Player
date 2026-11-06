@@ -66,6 +66,16 @@ public struct FullPlayerSheet: View {
                         // Violet glass backdrop
                         AuraBackground()
                         
+                        // Devotional glow, sparks and idol behind the whole player (not just the lyrics),
+                        // so the lyrics area doesn't look like a separate panel
+                        if playback.displayMode == .lyrics, let deity = DevotionalDeity.detect(track: track) {
+                            DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipped()
+                                .ignoresSafeArea()
+                                .allowsHitTesting(false)
+                        }
+                        
                         if isLandscape {
                             landscapeContent(geo: geo, track: track)
                         } else {
@@ -154,6 +164,10 @@ public struct FullPlayerSheet: View {
                 .padding(.top, 10)
                 .padding(.bottom, 28)
         }
+        // iOS 26 gives plain buttons a glass circle and a bigger size, which pushed the rows past the screen edge
+        .buttonStyle(AuraPlainButtonStyle())
+        .frame(maxWidth: .infinity)
+        .clipped()
     }
     
     // MARK: - Landscape Layout (Side-by-Side)
@@ -311,7 +325,7 @@ public struct FullPlayerSheet: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: playback.isPlaying)
             } else if playback.displayMode == .lyrics {
                 ZStack(alignment: .bottomTrailing) {
-                    LyricsView(playback: playback)
+                    LyricsView(playback: playback, showsEffects: false)
                     
                     Button {
                         Haptics.light()
@@ -611,6 +625,7 @@ public struct FullPlayerSheet: View {
                 .foregroundColor(AuraTheme.textSecondary)
                 .frame(width: 44, height: 44)
         }
+        .buttonStyle(AuraPlainButtonStyle())
     }
     
     private func formatTime(_ seconds: TimeInterval) -> String {

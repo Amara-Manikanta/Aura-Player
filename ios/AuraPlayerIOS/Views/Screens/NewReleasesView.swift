@@ -41,7 +41,7 @@ public struct NewReleasesView: View {
                                         .foregroundColor(selectedLanguage == lang ? .white : AuraTheme.textSecondary)
                                         .clipShape(Capsule())
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)

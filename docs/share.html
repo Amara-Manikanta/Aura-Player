@@ -504,6 +504,23 @@
       if (!text) return null;
       try { return JSON.parse(text); } catch (e) {}
 
+      // 1. Try finding the last complete track closing brace inside the tracks/s array
+      const tIdx = text.search(/"(?:tracks|s)"\s*:\s*\[/);
+      if (tIdx !== -1) {
+        const bIdx = text.indexOf("[", tIdx);
+        const sub = text.substring(bIdx + 1);
+        let last = sub.lastIndexOf("}");
+        while (last > 0) {
+          const candidate = text.substring(0, bIdx + 1) + sub.substring(0, last + 1) + "]}";
+          try {
+            return JSON.parse(candidate);
+          } catch (err) {
+            last = sub.lastIndexOf("}", last - 1);
+          }
+        }
+      }
+
+      // 2. Standard bracket balancer fallback
       let s = text.trim();
       let inString = false;
       const stack = [];
@@ -534,18 +551,7 @@
 
       try {
         return JSON.parse(s);
-      } catch (e) {
-        const tIdx = s.search(/"(?:tracks|s)"\s*:\s*\[/);
-        if (tIdx !== -1) {
-          const bIdx = s.indexOf("[", tIdx);
-          const sub = s.substring(bIdx + 1);
-          const last = Math.max(sub.lastIndexOf("}"), sub.lastIndexOf("]"));
-          if (last > 0) {
-            const rep = s.substring(0, bIdx + 1) + sub.substring(0, last + 1) + (sub.endsWith("]") ? "}" : "]}");
-            try { return JSON.parse(rep); } catch (e2) {}
-          }
-        }
-      }
+      } catch (e) {}
       return null;
     }
 

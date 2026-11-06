@@ -6,17 +6,20 @@ public struct LyricsView: View {
     private let compact: Bool
     /// Full-screen display mode with larger typography and breathing room
     private let isFullScreen: Bool
+    /// Draw the devotional sparks and idol behind the lyrics. The player draws them behind the whole screen instead.
+    private let showsEffects: Bool
     @State private var showEditor = false
     
-    public init(playback: PlaybackManager, compact: Bool = false, isFullScreen: Bool = false) {
+    public init(playback: PlaybackManager, compact: Bool = false, isFullScreen: Bool = false, showsEffects: Bool = true) {
         self.playback = playback
         self.compact = compact
         self.isFullScreen = isFullScreen
+        self.showsEffects = showsEffects
     }
     
     public var body: some View {
         ZStack {
-            if !compact, let track = playback.currentTrack,
+            if showsEffects, !compact, let track = playback.currentTrack,
                let deity = DevotionalDeity.detect(track: track) {
                 DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
                     .allowsHitTesting(false)
@@ -43,6 +46,9 @@ public struct LyricsView: View {
                     }
                 }
         }
+        // Whatever is inside (long lines, the idol, the sparks) must never make the player wider than the screen
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
     
     @ViewBuilder
@@ -61,7 +67,8 @@ public struct LyricsView: View {
                 let isDevotional = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : (isFullScreen ? 20 : 16)) {
+                        // a plain VStack: with lazy rows, scrolling to a line far down landed in the wrong place
+                        VStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : (isFullScreen ? 20 : 16)) {
                             ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
                                 let isActive = (index == playback.currentLyricIndex)
                                 let isPast = (playback.currentLyricIndex >= 0 && index < playback.currentLyricIndex)
@@ -153,7 +160,7 @@ public struct LyricsView: View {
                                     .blur(radius: isActive ? 0 : (isPast ? 0.2 : 0.45))
                                     .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isActive)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                                 .id(line.id)
                             }
                         }
@@ -177,9 +184,15 @@ public struct LyricsView: View {
                     // Opening mid-song: start at the line being sung
                     .onAppear {
                         let i = playback.currentLyricIndex
-                        if i >= 0, i < lyrics.syncedLines.count { proxy.scrollTo(lyrics.syncedLines[i].id, anchor: .center) }
+                        if i >= 0, i < lyrics.syncedLines.count {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+                                    proxy.scrollTo(lyrics.syncedLines[i].id, anchor: .center)
+                                }
+                            }
+                        }
                     }
-                    .onChange(of: playback.currentLyricIndex) { newIndex in
+                    .onChange(of: playback.currentLyricIndex) { _, newIndex in
                         if newIndex >= 0 && newIndex < lyrics.syncedLines.count {
                             withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                                 proxy.scrollTo(lyrics.syncedLines[newIndex].id, anchor: .center)

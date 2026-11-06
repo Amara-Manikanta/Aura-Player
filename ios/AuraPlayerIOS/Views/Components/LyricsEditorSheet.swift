@@ -194,7 +194,7 @@ public struct LyricsEditorSheet: View {
             .padding(.vertical, 9)
             .background(isSelected ? Color.white.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraPlainButtonStyle())
     }
 
     private var controls: some View {
@@ -261,7 +261,7 @@ public struct LyricsEditorSheet: View {
             .frame(height: 46)
             .liquidGlass(cornerRadius: 14)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraPlainButtonStyle())
     }
 
     // MARK: - Actions

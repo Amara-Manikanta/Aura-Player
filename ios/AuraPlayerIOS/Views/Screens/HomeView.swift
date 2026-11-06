@@ -85,7 +85,7 @@ public struct HomeView: View {
                                         .padding(10)
                                         .liquidGlass(cornerRadius: 14)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(AuraPlainButtonStyle())
                                 }
                             }
                             .padding(.horizontal, 20)

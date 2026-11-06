@@ -18,10 +18,10 @@ public struct MainTabView: View {
     public var body: some View {
         ZStack(alignment: .bottom) {
             // Background Web Player Host (keeps audio active across all tabs & audio mode)
-            // Always present, fully opaque, tucked behind the tabs: it holds the player whenever no
-            // screen is showing the video (WebKit pauses videos it considers invisible).
+            // Tucked invisibly behind tabs: non-zero size and minimal opacity keeps WebKit playing without visual bleed
             YouTubeWebPlayerView(playback: playback, hostID: "background")
-                .frame(width: 160, height: 90)
+                .frame(width: 2, height: 2)
+                .opacity(0.01)
                 .allowsHitTesting(false)
                 .zIndex(-100)
             

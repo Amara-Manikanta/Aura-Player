@@ -43,7 +43,8 @@ public struct PlayPreviousTrackIntent: AppIntent {
 public struct ResumePlaybackIntent: AppIntent {
     public static var title: LocalizedStringResource = "Resume Playback"
     public static var description = IntentDescription("Resumes music playback in Aura Player.")
-    public static var openAppWhenRun: Bool = false
+    // The video player can't start in an app Siri launched in the background, so bring the app up
+    public static var openAppWhenRun: Bool = true
     
     public init() {}
     

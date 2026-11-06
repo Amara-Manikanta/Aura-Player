@@ -42,7 +42,7 @@ public struct LibraryView: View {
                                         iconColor: AuraTheme.primary
                                     )
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                             
                             let mostPlayed = playlistStore.mostPlayedTracks
@@ -60,7 +60,7 @@ public struct LibraryView: View {
                                     iconColor: Color.orange
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                             
                             NavigationLink {
                                 RecentlyAddedView(playlistStore: playlistStore, playback: playback)
@@ -72,7 +72,7 @@ public struct LibraryView: View {
                                     iconColor: Color.teal
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                             
                             NavigationLink {
                                 NewReleasesView(playlistStore: playlistStore, playback: playback)
@@ -84,7 +84,7 @@ public struct LibraryView: View {
                                     iconColor: Color.purple
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                             
                             NavigationLink {
                                 ArtistsView(playlistStore: playlistStore, playback: playback)
@@ -96,7 +96,7 @@ public struct LibraryView: View {
                                     iconColor: Color(hex: 0x4E92DF)
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                             
                             Button {
                                 showSettings = true
@@ -108,7 +108,7 @@ public struct LibraryView: View {
                                     iconColor: Color(hex: 0x00D4FF)
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
@@ -237,7 +237,7 @@ public struct LibraryView: View {
                                         }
                                     }
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)
@@ -280,7 +280,7 @@ public struct LibraryView: View {
                                         .padding(12)
                                         .liquidGlass(cornerRadius: 12)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(AuraPlainButtonStyle())
                                 }
                                 
                                 // 2. Import Backup from Files
@@ -309,7 +309,7 @@ public struct LibraryView: View {
                                     .padding(12)
                                     .liquidGlass(cornerRadius: 12)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                                 
                                 // 3. Reset to Bundled macOS Library
                                 Button {
@@ -337,7 +337,7 @@ public struct LibraryView: View {
                                     .padding(12)
                                     .liquidGlass(cornerRadius: 12)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)

@@ -57,7 +57,7 @@ public struct ArtistsView: View {
                                         .foregroundColor(AuraTheme.textTertiary)
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AuraPlainButtonStyle())
                         }
                     }
                     .padding(.horizontal, 16)

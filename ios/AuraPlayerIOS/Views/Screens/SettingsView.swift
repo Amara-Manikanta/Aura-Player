@@ -127,7 +127,7 @@ public struct SettingsView: View {
                                                 )
                                         )
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(AuraPlainButtonStyle())
                                 }
                             }
                         }
@@ -247,7 +247,7 @@ public struct SettingsView: View {
                                                 .background(AuraTheme.primary)
                                                 .cornerRadius(9)
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(AuraPlainButtonStyle())
                                             .disabled(macSync.isSyncing)
                                             
                                             Button {
@@ -266,7 +266,7 @@ public struct SettingsView: View {
                                                 .background(Color.white.opacity(0.12))
                                                 .cornerRadius(9)
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(AuraPlainButtonStyle())
                                             .disabled(macSync.isSyncing)
                                             
                                             Button {
@@ -281,7 +281,7 @@ public struct SettingsView: View {
                                                     .background(Color.white.opacity(0.08))
                                                     .cornerRadius(9)
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(AuraPlainButtonStyle())
                                             .disabled(macSync.isSyncing)
                                         }
                                     } else {
@@ -301,7 +301,7 @@ public struct SettingsView: View {
                                             .background(AuraTheme.primary)
                                             .cornerRadius(9)
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(AuraPlainButtonStyle())
                                         .disabled(macSync.isSyncing)
                                     }
                                 }
@@ -333,7 +333,7 @@ public struct SettingsView: View {
                                     .padding(14)
                                     .liquidGlass(cornerRadius: 14)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                                 .disabled(appleMusic.isSyncing)
                                 
                                 // Export Backup
@@ -353,7 +353,7 @@ public struct SettingsView: View {
                                         .padding(14)
                                         .liquidGlass(cornerRadius: 14)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(AuraPlainButtonStyle())
                                 }
                                 
                                 // Import Backup
@@ -371,7 +371,7 @@ public struct SettingsView: View {
                                     .padding(14)
                                     .liquidGlass(cornerRadius: 14)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                                 
                                 // Reset to Bundled Library
                                 Button {
@@ -388,7 +388,7 @@ public struct SettingsView: View {
                                     .padding(14)
                                     .liquidGlass(cornerRadius: 14)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)

@@ -124,6 +124,7 @@ fun MainScreen(
                     AppTab.SEARCH -> Box(Modifier.statusBarsPadding()) { SearchScreen(repository, playbackManager) }
                     AppTab.LIBRARY -> LibraryScreen(
                         repository,
+                        playbackManager,
                         onSelectPlaylist = { open(Route.PlaylistDetail(it)) },
                         onMostPlayed = { open(Route.MostPlayed) },
                         onRecentlyAdded = { open(Route.RecentlyAdded) },
@@ -164,7 +165,11 @@ fun MainScreen(
                 onDismiss = { isFullPlayerExpanded = false },
                 onChangeVideo = { showChangeVideo = true },
                 onAddToPlaylist = { addCurrentToPlaylist = true },
-                onEnterPiP = onEnterPiP
+                onEnterPiP = onEnterPiP,
+                onOpenSettings = {
+                    isFullPlayerExpanded = false
+                    open(Route.Settings)
+                }
             )
         }
 

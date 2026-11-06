@@ -9,6 +9,7 @@ public struct AddSongsSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var text: String = ""
+    @State private var searchScope: SearchScope = .music
     @State private var results: [YouTubeSearchResult] = []
     @State private var isSearching = false
     @State private var searchedFor = ""
@@ -40,6 +41,7 @@ public struct AddSongsSheet: View {
                 
                 VStack(spacing: 10) {
                     inputField
+                    scopeSelector
                     
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 6) {
@@ -91,11 +93,53 @@ public struct AddSongsSheet: View {
                         .foregroundColor(AuraTheme.primary)
                 }
             }
-            .onAppear { focused = true }
+            .onAppear {
+                focused = true
+                if let name = playlist?.name.lowercased(),
+                   name.contains("devo") || name.contains("bhajan") || name.contains("stotram") || name.contains("ayyappa") || name.contains("god") {
+                    searchScope = .devotional
+                }
+            }
         }
     }
     
     // MARK: - Pieces
+    
+    private var scopeSelector: some View {
+        HStack(spacing: 6) {
+            ForEach(SearchScope.allCases) { scope in
+                let selected = (searchScope == scope)
+                Button {
+                    Haptics.selection()
+                    searchScope = scope
+                    if !typed.isEmpty {
+                        startSearch()
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: scope.icon)
+                            .font(.system(size: 11, weight: .bold))
+                        Text(scope.rawValue)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(selected ? .white : AuraTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background {
+                        if selected {
+                            AuraTheme.primaryGradient.clipShape(RoundedRectangle(cornerRadius: 10))
+                        } else {
+                            Color.white.opacity(0.06).clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(4)
+        .liquidGlass(cornerRadius: 14)
+        .padding(.horizontal, 16)
+    }
     
     private var inputField: some View {
         HStack(spacing: 10) {
@@ -183,7 +227,7 @@ public struct AddSongsSheet: View {
             .padding(10)
             .liquidGlass(cornerRadius: 14)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraPlainButtonStyle())
     }
     
     private func resultRow(_ result: YouTubeSearchResult) -> some View {
@@ -221,7 +265,7 @@ public struct AddSongsSheet: View {
             .padding(8)
             .liquidGlass(cornerRadius: 14)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraPlainButtonStyle())
     }
     
     // MARK: - Actions
@@ -242,9 +286,19 @@ public struct AddSongsSheet: View {
                 // A link: show that exact video, with its real title and length
                 if let detail = await YouTubeService.shared.linkDetails(videoId: id) { found = [detail] }
             } else {
-                // Same ranking as the Mac app: official video song first; lyric videos, Shorts, covers dropped
-                found = (try? await YouTubeService.shared.languageAwareSearch(
-                    query: query, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
+                switch searchScope {
+                case .music:
+                    found = (try? await YouTubeService.shared.languageAwareSearch(
+                        query: query, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
+                case .youtube:
+                    found = await YouTubeService.shared.search(query: query)
+                case .devotional:
+                    let lower = query.lowercased()
+                    let devKeywords = ["devotional", "bhajan", "stotram", "stuti", "keertana", "kirtan", "aarti", "chalisa", "mantra", "suprabhatam", "ayyappa", "shiva", "venkateswara", "ram", "krishna", "durga", "hanuman", "song"]
+                    let hasDevWord = devKeywords.contains { lower.contains($0) }
+                    let devQuery = hasDevWord ? query : "\(query) devotional songs"
+                    found = await YouTubeService.shared.search(query: devQuery)
+                }
             }
             guard !Task.isCancelled else { return }
             await MainActor.run {

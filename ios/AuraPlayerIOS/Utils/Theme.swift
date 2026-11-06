@@ -170,6 +170,12 @@ public extension Color {
 
 // Haptic Feedback Helper
 public enum Haptics {
+    public static func selection() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+    }
+    
     public static func light() {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
@@ -186,5 +192,17 @@ public enum Haptics {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
         generator.notificationOccurred(.success)
+    }
+}
+
+
+/// A button with no system chrome. iOS's "Button Shapes" accessibility setting draws a round shape behind
+/// every system-styled button, which made icon buttons bigger than the layout expected and pushed rows past the
+/// screen edge. A custom style is left alone by that setting.
+public struct AuraPlainButtonStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }

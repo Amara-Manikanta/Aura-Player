@@ -55,6 +55,7 @@ public struct CurrentSongMenu: View {
                 .frame(width: 32, height: 36)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(AuraPlainButtonStyle())
         .disabled(playback.currentTrack == nil)
         .sheet(isPresented: $showTrimSheet) {
             if let track = playback.currentTrack { TrimTimesSheet(track: track, store: store, playback: playback) }

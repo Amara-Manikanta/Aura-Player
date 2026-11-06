@@ -15,6 +15,7 @@ import com.antigravity.auraplayer.model.LyricLine
 import com.antigravity.auraplayer.model.MediaType
 import com.antigravity.auraplayer.model.MediaTrack
 import com.antigravity.auraplayer.model.TrackSourceType
+import com.antigravity.auraplayer.ui.theme.PlayerTheme
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
@@ -61,6 +62,9 @@ class PlaybackManager private constructor(private val context: Context) {
         private const val TAG = "AuraPlayer/Playback"
         const val PREFS = "aura_settings"
         const val KEY_PREFERRED_LANGUAGE = "preferredLanguage"
+        const val KEY_PLAYER_THEME = "playerTheme"
+        const val KEY_SANSA_HAPTICS = "sansaHaptics"
+        const val KEY_SANSA_WHEEL_DEFAULT = "sansaWheelDefault"
 
         @Volatile
         private var instance: PlaybackManager? = null
@@ -146,6 +150,71 @@ class PlaybackManager private constructor(private val context: Context) {
     /** Album cover found for the playing song (iTunes), shown instead of the video thumbnail */
     private val _artworkUrl = MutableStateFlow<String?>(null)
     val artworkUrl: StateFlow<String?> = _artworkUrl.asStateFlow()
+
+    // Player Themes
+    private val _playerTheme = MutableStateFlow(
+        if (prefs.getString(KEY_PLAYER_THEME, "modern") == "sansa") PlayerTheme.SANSA else PlayerTheme.MODERN
+    )
+    val playerTheme: StateFlow<PlayerTheme> = _playerTheme.asStateFlow()
+
+    private val _sansaHaptics = MutableStateFlow(prefs.getBoolean(KEY_SANSA_HAPTICS, true))
+    val sansaHaptics: StateFlow<Boolean> = _sansaHaptics.asStateFlow()
+
+    private val _sansaWheelDefault = MutableStateFlow(prefs.getString(KEY_SANSA_WHEEL_DEFAULT, "seek") ?: "seek")
+    val sansaWheelDefault: StateFlow<String> = _sansaWheelDefault.asStateFlow()
+
+    // Sleep Timer
+    private val _sleepTimerMinutes = MutableStateFlow<Int?>(null)
+    val sleepTimerMinutes: StateFlow<Int?> = _sleepTimerMinutes.asStateFlow()
+
+    private val _sleepTimerRemainingSeconds = MutableStateFlow<Int?>(null)
+    val sleepTimerRemainingSeconds: StateFlow<Int?> = _sleepTimerRemainingSeconds.asStateFlow()
+
+    private var sleepTimerJob: Job? = null
+
+    fun setPlayerTheme(theme: PlayerTheme) {
+        _playerTheme.value = theme
+        prefs.edit().putString(KEY_PLAYER_THEME, if (theme == PlayerTheme.SANSA) "sansa" else "modern").apply()
+    }
+
+    fun setSansaHaptics(enabled: Boolean) {
+        _sansaHaptics.value = enabled
+        prefs.edit().putBoolean(KEY_SANSA_HAPTICS, enabled).apply()
+    }
+
+    fun setSansaWheelDefault(defaultMode: String) {
+        _sansaWheelDefault.value = defaultMode
+        prefs.edit().putString(KEY_SANSA_WHEEL_DEFAULT, defaultMode).apply()
+    }
+
+    fun setSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        _sleepTimerMinutes.value = minutes
+        if (minutes == -1) {
+            // End of track timer
+            _sleepTimerRemainingSeconds.value = null
+            return
+        }
+        val totalSeconds = minutes * 60
+        _sleepTimerRemainingSeconds.value = totalSeconds
+        sleepTimerJob = scope.launch {
+            var remaining = totalSeconds
+            while (remaining > 0) {
+                delay(1000L)
+                remaining--
+                _sleepTimerRemainingSeconds.value = remaining
+            }
+            pause()
+            cancelSleepTimer()
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerMinutes.value = null
+        _sleepTimerRemainingSeconds.value = null
+    }
 
     // Video player hand-over
     private val _videoCommands = MutableSharedFlow<VideoCommand>(extraBufferCapacity = 8)
@@ -357,6 +426,14 @@ class PlaybackManager private constructor(private val context: Context) {
         if (c.isPlaying) c.pause() else c.play()
     }
 
+    fun pause() {
+        if (isVideoActive) {
+            _videoCommands.tryEmit(VideoCommand.Pause)
+        } else {
+            controller?.pause()
+        }
+    }
+
     fun seekTo(positionMs: Long) {
         _currentPosition.value = positionMs
         updateCurrentLyric(positionMs)
@@ -425,6 +502,11 @@ class PlaybackManager private constructor(private val context: Context) {
 
     /** Song finished (or reached its end time): Repeat One restarts it, otherwise the next song. */
     private fun handleTrackEnded() {
+        if (_sleepTimerMinutes.value == -1) {
+            cancelSleepTimer()
+            pause()
+            return
+        }
         if (holdForLyricsEditor) {
             if (isVideoActive) _videoCommands.tryEmit(VideoCommand.Pause) else controller?.pause()
             return

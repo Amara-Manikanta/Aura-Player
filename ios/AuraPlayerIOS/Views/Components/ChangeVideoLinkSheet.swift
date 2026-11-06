@@ -148,7 +148,7 @@ public struct ChangeVideoLinkSheet: View {
                                         .background(isSelected ? AuraTheme.primary.opacity(0.15) : AuraTheme.surfaceCard)
                                         .cornerRadius(12)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(AuraPlainButtonStyle())
                                 }
                             }
                         }
@@ -218,7 +218,7 @@ public struct ChangeVideoLinkSheet: View {
                     .foregroundColor(AuraTheme.textTertiary)
                     .padding(.trailing, 10)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AuraPlainButtonStyle())
         }
     }
 }

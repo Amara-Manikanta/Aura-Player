@@ -216,7 +216,7 @@ public struct PlaylistDetailView: View {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(AuraTheme.textTertiary)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(AuraPlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 14)
