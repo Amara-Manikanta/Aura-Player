@@ -83,12 +83,27 @@ public struct FullPlayerSheet: View {
                         }
                     }
                 }
+                // Turning the phone sideways on the Video tab opens the video full screen
+                .onChange(of: geo.size) { _, size in
+                    if size.width > size.height, playback.displayMode == .video, !showFullScreenVideo {
+                        showFullScreenVideo = true
+                    }
+                }
+                .onChange(of: playback.displayMode) { _, mode in
+                    if mode == .video, geo.size.width > geo.size.height, !showFullScreenVideo {
+                        showFullScreenVideo = true
+                    }
+                }
             }
+            // Sheets and covers don't inherit the app-wide style, so it is set again on everything shown from here
+            .buttonStyle(AuraPlainButtonStyle())
             .fullScreenCover(isPresented: $showFullScreenVideo) {
                 VideoFullScreenView(playback: playback)
+                    .buttonStyle(AuraPlainButtonStyle())
             }
             .fullScreenCover(isPresented: $showFullScreenLyrics) {
                 LyricsFullScreenView(playback: playback, playlistStore: playlistStore)
+                    .buttonStyle(AuraPlainButtonStyle())
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView(playlistStore: playlistStore)

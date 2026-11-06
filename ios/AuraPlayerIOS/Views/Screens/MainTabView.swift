@@ -69,7 +69,11 @@ public struct MainTabView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showFullPlayer) {
             FullPlayerSheet(playback: playback, playlistStore: playlistStore)
+                .buttonStyle(AuraPlainButtonStyle())
         }
+        // Every screen and sheet opened from here: iOS "Button Shapes" would otherwise draw a round shape behind
+        // each button and make icon rows wider than the screen
+        .buttonStyle(AuraPlainButtonStyle())
         .alert("Import", isPresented: noticeBinding) {
             Button("OK", role: .cancel) {}
         } message: {

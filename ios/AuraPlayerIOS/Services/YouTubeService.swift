@@ -312,6 +312,22 @@ public actor YouTubeService {
         }
     }
     
+    /// The same search, with YouTube's own "sort by view count" option
+    public func searchMostViewed(query: String) async -> [YouTubeSearchResult] {
+        let clean = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty,
+              let encoded = clean.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://www.youtube.com/results?search_query=\(encoded)&sp=CAM%253D") else { return [] }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let html = String(data: data, encoding: .utf8) else { return [] }
+        return parseInitialData(from: html)
+    }
+    
     /// Resolves an optimal official videoId for a given track
     public func resolveVideoId(for queryOrTitle: String, artist: String = "") async -> String? {
         let cacheKey = "\(queryOrTitle.lowercased())|\(artist.lowercased())"

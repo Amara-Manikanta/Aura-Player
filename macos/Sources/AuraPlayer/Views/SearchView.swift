@@ -1,6 +1,13 @@
 import SwiftUI
 import AppKit
 
+/// Music: songs ranked for you (language-aware). YouTube Direct: whatever YouTube lists, plus topic tabs.
+private enum SearchScope: String, CaseIterable, Identifiable {
+    case music = "Music"
+    case youtube = "YouTube Direct"
+    var id: String { rawValue }
+}
+
 public struct SearchView: View {
     @Bindable var store: PlaylistStore
     @Bindable var playback: PlaybackManager
@@ -17,6 +24,11 @@ public struct SearchView: View {
     @State private var suggestionTask: Task<Void, Never>?
     @State private var pendingDuplicate: PendingDuplicate?
     @State private var selectedPlaylistForAdd: UUID?
+    @State private var searchScope: SearchScope = .music
+    /// YouTube Direct before anything is typed: a feed per topic (Home, Tech, Music...), like YouTube's own tabs
+    @State private var feedTab: String = "Home"
+    @State private var feeds: [String: [YouTubeSearchResult]] = [:]
+    @State private var feedLoading = false
     
     private static let languages = ["Any", "Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "English", "Punjabi"]
     private static let quickTags = ["Top Hits", "Telugu Hits", "Bollywood", "Lo-Fi Chill", "Tamil Hits", "Hindi Hits", "Ayyappa Swamy", "Sid Sriram", "A.R. Rahman", "Anirudh"]
@@ -81,6 +93,8 @@ public struct SearchView: View {
                             loadingView
                         } else if !searchResults.isEmpty {
                             resultsListView
+                        } else if searchScope == .youtube {
+                            youtubeFeedView
                         } else {
                             idleDiscoveryView
                         }
@@ -127,6 +141,19 @@ public struct SearchView: View {
     // MARK: - Search Header
     private var searchHeader: some View {
         VStack(spacing: 12) {
+            Picker("", selection: $searchScope) {
+                ForEach(SearchScope.allCases) { scope in Text(scope.rawValue).tag(scope) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 300, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onChange(of: searchScope) { _, _ in
+                searchResults = []
+                statusMessage = nil
+                if !query.trimmingCharacters(in: .whitespaces).isEmpty { performSearch(query: query) }
+            }
+            
             HStack(spacing: 12) {
                 // Search Input Field
                 HStack(spacing: 10) {
@@ -167,7 +194,8 @@ public struct SearchView: View {
                         .stroke(Color.purple.opacity(0.35), lineWidth: 1)
                 )
                 
-                // Language Filter Picker
+                // Language Filter Picker (the Music search only)
+                if searchScope == .music {
                 Picker("", selection: $searchLanguage) {
                     ForEach(Self.languages, id: \.self) { lang in
                         Text(lang).tag(lang)
@@ -181,6 +209,7 @@ public struct SearchView: View {
                     }
                 }
                 .help("Select audio language filter")
+                }
                 
                 // Search Action Button
                 Button {
@@ -205,7 +234,8 @@ public struct SearchView: View {
                 .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || isSearching)
             }
             
-            // Quick Filter Tag Pills
+            // Quick Filter Tag Pills (the Music search only)
+            if searchScope == .music {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     Text("Popular:")
@@ -230,6 +260,7 @@ public struct SearchView: View {
                         .buttonStyle(.plain)
                     }
                 }
+            }
             }
         }
     }
@@ -540,6 +571,97 @@ public struct SearchView: View {
         .buttonStyle(.plain)
     }
     
+    // MARK: - YouTube Direct topic feed
+    private var feedTabs: [String] { ["Home"] + FavoriteChannels.topics }
+    
+    private var youtubeFeedView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 26) {
+                ForEach(feedTabs, id: \.self) { tab in
+                    Button {
+                        feedTab = tab
+                        loadFeed(tab)
+                    } label: {
+                        VStack(spacing: 5) {
+                            Text(tab)
+                                .font(.system(size: 15, weight: feedTab == tab ? .bold : .medium))
+                                .foregroundStyle(feedTab == tab ? Color.primary : Color.secondary)
+                            Capsule()
+                                .fill(feedTab == tab ? Color.red : Color.clear)
+                                .frame(height: 3)
+                        }
+                        .fixedSize()
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+                Button {
+                    loadFeed(feedTab, force: true)
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Pick different channels")
+            }
+            
+            let items = feeds[feedTab] ?? []
+            if items.isEmpty {
+                VStack(spacing: 12) {
+                    if feedLoading {
+                        ProgressView()
+                        Text("Loading \(feedTab)...")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Nothing loaded")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        Button("Try again") { loadFeed(feedTab, force: true) }
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 240)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(items) { item in
+                        searchResultRow(item: item, isBestMatch: false)
+                    }
+                }
+            }
+        }
+        .onAppear { loadFeed(feedTab) }
+    }
+    
+    private func loadFeed(_ tab: String, force: Bool = false) {
+        guard force || feeds[tab] == nil else { return }
+        feedLoading = true
+        let pool = tab == "Home" ? FavoriteChannels.all : FavoriteChannels.all.filter { $0.topic == tab }
+        // A few random channels each time: every channel is a separate page to download
+        let picks = Array(pool.shuffled().prefix(tab == "Home" ? 12 : 8))
+        Task {
+            var lists: [[YouTubeSearchResult]] = []
+            await withTaskGroup(of: [YouTubeSearchResult].self) { group in
+                for channel in picks {
+                    group.addTask { await YouTubeService.shared.channelVideos(handle: channel.handle, name: channel.name, limit: 4) }
+                }
+                for await list in group where !list.isEmpty { lists.append(list) }
+            }
+            // one from each channel in turn, so no channel fills the page
+            var mixed: [YouTubeSearchResult] = []
+            var seen = Set<String>()
+            var round = 0
+            while mixed.count < 40, lists.contains(where: { round < $0.count }) {
+                for list in lists where round < list.count && seen.insert(list[round].id).inserted { mixed.append(list[round]) }
+                round += 1
+            }
+            await MainActor.run {
+                if !mixed.isEmpty { feeds[tab] = mixed }
+                feedLoading = false
+            }
+        }
+    }
+    
     // MARK: - Search & Suggestion Actions
     private func fetchSuggestions(for text: String) {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -576,7 +698,15 @@ public struct SearchView: View {
         
         searchTask = Task {
             do {
-                if clean.contains("youtube.com") || clean.contains("youtu.be") {
+                if searchScope == .youtube {
+                    let results = await YouTubeService.shared.directSearch(query: clean)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self.searchResults = results
+                        self.isSearching = false
+                        if results.isEmpty { self.statusMessage = "No results found on YouTube for \"\(clean)\"" }
+                    }
+                } else if clean.contains("youtube.com") || clean.contains("youtu.be") {
                     let track = try await YouTubeService.shared.fetchTrackInfo(urlOrQuery: clean)
                     guard !Task.isCancelled else { return }
                     await MainActor.run {

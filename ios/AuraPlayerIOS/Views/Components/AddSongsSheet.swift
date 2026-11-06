@@ -95,10 +95,6 @@ public struct AddSongsSheet: View {
             }
             .onAppear {
                 focused = true
-                if let name = playlist?.name.lowercased(),
-                   name.contains("devo") || name.contains("bhajan") || name.contains("stotram") || name.contains("ayyappa") || name.contains("god") {
-                    searchScope = .devotional
-                }
             }
         }
     }
@@ -292,12 +288,6 @@ public struct AddSongsSheet: View {
                         query: query, limit: 15, songTitle: nil, artist: nil, movie: nil, expectedDuration: nil, language: lang)) ?? []
                 case .youtube:
                     found = await YouTubeService.shared.search(query: query)
-                case .devotional:
-                    let lower = query.lowercased()
-                    let devKeywords = ["devotional", "bhajan", "stotram", "stuti", "keertana", "kirtan", "aarti", "chalisa", "mantra", "suprabhatam", "ayyappa", "shiva", "venkateswara", "ram", "krishna", "durga", "hanuman", "song"]
-                    let hasDevWord = devKeywords.contains { lower.contains($0) }
-                    let devQuery = hasDevWord ? query : "\(query) devotional songs"
-                    found = await YouTubeService.shared.search(query: devQuery)
                 }
             }
             guard !Task.isCancelled else { return }

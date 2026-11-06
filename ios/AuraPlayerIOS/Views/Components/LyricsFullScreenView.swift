@@ -39,11 +39,43 @@ public struct LyricsFullScreenView: View {
                     // 1. Same signature Aura violet liquid-glass backdrop as the normal player
                     AuraBackground()
                     
+                    // Devotional glow, sparks and idol over the whole screen, edge to edge (no gaps at the top and bottom)
+                    if let deity = DevotionalDeity.detect(track: track) {
+                        DevotionalGodEffectsView(deity: deity, isPlaying: playback.isPlaying)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                            .ignoresSafeArea()
+                            .allowsHitTesting(false)
+                    }
+                    
                     // 2. Main Lyrics Display (fills entire screen and scrolls freely)
                     if isLandscape {
                         landscapeBody(geo: geo, track: track)
                     } else {
                         portraitBody(geo: geo, track: track)
+                    }
+                    
+                    // A small exit that stays when the controls hide (there is no tap on the lyrics to bring them back)
+                    if !showControls {
+                        VStack {
+                            HStack {
+                                Button {
+                                    Haptics.light()
+                                    dismiss()
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.white.opacity(0.85))
+                                        .frame(width: 34, height: 34)
+                                        .background(.ultraThinMaterial, in: Circle())
+                                }
+                                .padding(.leading, isLandscape ? 48 : 20)
+                                .padding(.top, isLandscape ? 16 : 54)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                        .opacity(0.6)
                     }
                     
                     // 3. Floating Overlay Header (anchored to top only, doesn't block lyrics touch)
@@ -103,7 +135,7 @@ public struct LyricsFullScreenView: View {
     
     // MARK: - Portrait Layout
     private func portraitBody(geo: GeometryProxy, track: MediaTrack) -> some View {
-        LyricsView(playback: playback, compact: false, isFullScreen: true)
+        LyricsView(playback: playback, compact: false, isFullScreen: true, showsEffects: false)
             .padding(.top, showControls ? 64 : 24)
             .padding(.bottom, showControls ? 135 : 24)
             .animation(.easeInOut(duration: 0.25), value: showControls)
@@ -172,7 +204,7 @@ public struct LyricsFullScreenView: View {
             }
             
             // Right Column: Lyrics View
-            LyricsView(playback: playback, compact: false, isFullScreen: true)
+            LyricsView(playback: playback, compact: false, isFullScreen: true, showsEffects: false)
                 .padding(.top, showControls ? 36 : 16)
                 .padding(.bottom, showControls ? 16 : 16)
                 .padding(.trailing, 20)

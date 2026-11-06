@@ -3,7 +3,6 @@ import SwiftUI
 public enum SearchScope: String, CaseIterable, Identifiable {
     case music = "Music"
     case youtube = "YouTube Direct"
-    case devotional = "Devotional"
     
     public var id: String { rawValue }
     
@@ -11,7 +10,6 @@ public enum SearchScope: String, CaseIterable, Identifiable {
         switch self {
         case .music: return "music.note"
         case .youtube: return "play.rectangle.fill"
-        case .devotional: return "sparkles"
         }
     }
 }
@@ -27,6 +25,10 @@ public struct SearchView: View {
     @State private var suggestions: [String] = []
     @State private var trackForPlaylistSheet: MediaTrack?
     @State private var suggestionTask: Task<Void, Never>?
+    /// YouTube search, before anything is typed: a feed per topic (Home, Tech, Music...), like YouTube's own tabs
+    @State private var feedTab: String = "Home"
+    @State private var feeds: [String: [YouTubeSearchResult]] = [:]
+    @State private var feedLoading = false
     /// Version of the song to look for ("Any" = no preference), as on the Mac
     @AppStorage("searchLanguage") private var searchLanguage: String = "Any"
     private let languages = ["Any", "Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "English", "Punjabi"]
@@ -76,7 +78,7 @@ public struct SearchView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     
-                    // Search Scope Selector (Music / YouTube Direct / Devotional)
+                    // Search Scope Selector (Music / YouTube Direct)
                     HStack(spacing: 6) {
                         ForEach(SearchScope.allCases) { scope in
                             scopeButton(scope)
@@ -86,7 +88,8 @@ public struct SearchView: View {
                     .liquidGlass(cornerRadius: 14)
                     .padding(.horizontal, 16)
                     
-                    // Language of the version to find (re-runs the search)
+                    // Language of the version to find (re-runs the search); only the Music search uses it
+                    if searchScope == .music {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(languages, id: \.self) { lang in
@@ -105,6 +108,7 @@ public struct SearchView: View {
                             }
                         }
                         .padding(.horizontal, 16)
+                    }
                     }
                     
                     // Suggestions Overlay (if typing and no results yet)
@@ -141,7 +145,7 @@ public struct SearchView: View {
                     }
                     
                     // Quick Filter Chips (if idle)
-                    if searchResults.isEmpty && !isSearching && suggestions.isEmpty {
+                    if searchResults.isEmpty && !isSearching && suggestions.isEmpty && searchScope == .music {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(quickTags, id: \.self) { tag in
@@ -203,6 +207,8 @@ public struct SearchView: View {
                             .padding(.horizontal, 8)
                             .padding(.bottom, 120)
                         }
+                    } else if suggestions.isEmpty && searchScope == .youtube {
+                        youtubeFeed
                     } else if suggestions.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "music.note.magnifyingglass")
@@ -246,6 +252,119 @@ public struct SearchView: View {
         }
     }
     
+    // MARK: - YouTube topic feed
+    
+    private var feedTabs: [String] { ["Home"] + FavoriteChannels.topics }
+    
+    private var youtubeFeed: some View {
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 22) {
+                    ForEach(feedTabs, id: \.self) { tab in
+                        Button {
+                            Haptics.selection()
+                            feedTab = tab
+                            loadFeed(tab)
+                        } label: {
+                            VStack(spacing: 5) {
+                                Text(tab)
+                                    .font(.system(size: 16, weight: feedTab == tab ? .bold : .medium))
+                                    .foregroundColor(feedTab == tab ? AuraTheme.textPrimary : AuraTheme.textSecondary)
+                                Capsule()
+                                    .fill(feedTab == tab ? AuraTheme.primary : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .fixedSize()
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .padding(.vertical, 4)
+            
+            let items = feeds[feedTab] ?? []
+            if items.isEmpty {
+                VStack(spacing: 14) {
+                    if feedLoading {
+                        ProgressView().tint(AuraTheme.primary)
+                        Text("Loading \(feedTab)...")
+                            .font(.system(size: 14))
+                            .foregroundColor(AuraTheme.textSecondary)
+                    } else {
+                        Text("Nothing loaded")
+                            .font(.system(size: 14))
+                            .foregroundColor(AuraTheme.textSecondary)
+                        Button("Try again") { loadFeed(feedTab, force: true) }
+                            .foregroundColor(AuraTheme.primary)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 4) {
+                        ForEach(items) { result in resultRow(result, queue: items) }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 120)
+                }
+                .refreshable { await reloadFeed(feedTab) }
+            }
+        }
+        .onAppear { loadFeed(feedTab) }
+    }
+    
+    private func loadFeed(_ tab: String, force: Bool = false) {
+        guard force || feeds[tab] == nil else { return }
+        Task { await reloadFeed(tab) }
+    }
+    
+    /// Latest videos from some of the channels under this tab, mixed together. A few random channels each time,
+    /// since every channel is a separate page to download.
+    private func reloadFeed(_ tab: String) async {
+        await MainActor.run { feedLoading = true }
+        let pool = tab == "Home" ? FavoriteChannels.all : FavoriteChannels.all.filter { $0.topic == tab }
+        let picks = Array(pool.shuffled().prefix(tab == "Home" ? 12 : 8))
+        
+        var lists: [[YouTubeSearchResult]] = []
+        await withTaskGroup(of: [YouTubeSearchResult].self) { group in
+            for channel in picks {
+                group.addTask { await YouTubeService.shared.channelVideos(handle: channel.handle, name: channel.name, limit: 4) }
+            }
+            for await list in group where !list.isEmpty { lists.append(list) }
+        }
+        
+        // one from each channel in turn, so no channel fills the page
+        var mixed: [YouTubeSearchResult] = []
+        var seen = Set<String>()
+        var round = 0
+        while mixed.count < 40, lists.contains(where: { round < $0.count }) {
+            for list in lists where round < list.count && seen.insert(list[round].id).inserted { mixed.append(list[round]) }
+            round += 1
+        }
+        
+        await MainActor.run {
+            if !mixed.isEmpty { feeds[tab] = mixed }
+            feedLoading = false
+        }
+    }
+    
+    private func resultRow(_ result: YouTubeSearchResult, queue items: [YouTubeSearchResult]) -> some View {
+        let track = convertToMediaTrack(result)
+        let queue = items.map(convertToMediaTrack)
+        return TrackRowView(
+            track: track,
+            isCurrent: playback.currentTrack?.youtubeId == track.youtubeId,
+            isPlaying: playback.isPlaying,
+            onTap: { playback.playTrack(track, inQueue: queue, context: .none) },
+            onPlayVideo: {
+                playback.displayMode = .video
+                playback.playTrack(track, inQueue: queue, context: .none)
+            },
+            onAddToPlaylist: { trackForPlaylistSheet = track },
+            onToggleFavorite: { playlistStore.toggleFavorite(track: track) }
+        )
+    }
+    
     private func scopeButton(_ scope: SearchScope) -> some View {
         let selected: Bool = (searchScope == scope)
         let textColor: Color = selected ? Color.white : AuraTheme.textSecondary
@@ -254,6 +373,8 @@ public struct SearchView: View {
             searchScope = scope
             if !searchText.isEmpty {
                 performSearch(query: searchText)
+            } else {
+                searchResults = []
             }
         } label: {
             HStack(spacing: 5) {
@@ -293,13 +414,6 @@ public struct SearchView: View {
             case .youtube:
                 // Direct unfiltered YouTube search without studio music bias
                 res = await YouTubeService.shared.search(query: q)
-            case .devotional:
-                // Devotional mode: preserve audio jukeboxes, stotrams, keertanas, mantras & bhajans
-                let lower = q.lowercased()
-                let devKeywords = ["devotional", "bhajan", "stotram", "stuti", "keertana", "kirtan", "aarti", "chalisa", "mantra", "suprabhatam", "ayyappa", "shiva", "venkateswara", "ram", "krishna", "durga", "hanuman", "song"]
-                let hasDevWord = devKeywords.contains { lower.contains($0) }
-                let devQuery = hasDevWord ? q : "\(q) devotional songs"
-                res = await YouTubeService.shared.search(query: devQuery)
             }
             await MainActor.run {
                 self.searchResults = res
