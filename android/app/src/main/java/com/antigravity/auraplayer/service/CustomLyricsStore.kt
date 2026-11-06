@@ -61,55 +61,61 @@ object CustomLyricsStore {
     fun init(context: Context) {
         if (file != null) return
         file = File(context.filesDir, "custom_lyrics.json")
-        val f = file!!
-        if (!f.exists()) {
-            try {
-                context.assets.open("custom_lyrics.json").use { input ->
-                    f.outputStream().use { output -> input.copyTo(output) }
-                }
-            } catch (ignored: Exception) { }
-        }
-        load()
+        load(context)
     }
 
     private fun key(title: String, artist: String): String {
         val cleaned = MetadataCleaner.clean(title, artist)
-        val t = cleaned.cleanTitle.lowercase().trim()
-        val a = cleaned.primaryArtist.lowercase().trim()
+        val t = cleaned.cleanTitle.lowercase().filter { it.isLetterOrDigit() }.trim()
+        val a = cleaned.primaryArtist.lowercase().filter { it.isLetterOrDigit() }.trim()
         return "$t|$a"
     }
 
     @Synchronized
-    private fun load() {
+    private fun load(context: Context? = null) {
         val f = file ?: return
-        if (!f.exists()) return
-        try {
-            val jsonStr = f.readText()
-            val root = JSONObject(jsonStr)
-            cache.clear()
-            val keys = root.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                val obj = root.getJSONObject(k)
-                val linesArr = obj.getJSONArray("lines")
-                val lines = mutableListOf<String>()
-                for (i in 0 until linesArr.length()) lines.add(linesArr.getString(i))
-                val timesArr = obj.getJSONArray("times")
-                val times = mutableListOf<Long?>()
-                for (i in 0 until timesArr.length()) {
-                    if (timesArr.isNull(i)) times.add(null)
-                    else {
-                        val v = timesArr.getDouble(i)
-                        // Support both seconds (from Mac/iOS sync) and ms
-                        val ms = if (v < 10000.0) (v * 1000).toLong() else v.toLong()
-                        times.add(ms)
-                    }
+        cache.clear()
+
+        // 1. Load bundled assets first
+        if (context != null) {
+            try {
+                context.assets.open("custom_lyrics.json").bufferedReader().use { r ->
+                    parseIntoCache(r.readText())
                 }
-                val mod = obj.optLong("modified", System.currentTimeMillis())
-                cache[k] = Entry(lines, times, mod)
+            } catch (ignored: Exception) { }
+        }
+
+        // 2. Overlay user modifications from disk
+        if (f.exists()) {
+            try {
+                parseIntoCache(f.readText())
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load custom lyrics", e)
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load custom lyrics", e)
+        }
+    }
+
+    private fun parseIntoCache(jsonStr: String) {
+        val root = JSONObject(jsonStr)
+        val keys = root.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val obj = root.getJSONObject(k)
+            val linesArr = obj.getJSONArray("lines")
+            val lines = mutableListOf<String>()
+            for (i in 0 until linesArr.length()) lines.add(linesArr.getString(i))
+            val timesArr = obj.getJSONArray("times")
+            val times = mutableListOf<Long?>()
+            for (i in 0 until timesArr.length()) {
+                if (timesArr.isNull(i)) times.add(null)
+                else {
+                    val v = timesArr.getDouble(i)
+                    val ms = if (v < 10000.0) (v * 1000).toLong() else v.toLong()
+                    times.add(ms)
+                }
+            }
+            val mod = obj.optLong("modified", System.currentTimeMillis())
+            cache[k] = Entry(lines, times, mod)
         }
     }
 
@@ -140,7 +146,7 @@ object CustomLyricsStore {
 
     @Synchronized
     fun getLyrics(title: String, artist: String): Pair<List<LyricLine>?, String?>? {
-        val entry = cache[key(title, artist)] ?: return null
+        val entry = getEntry(title, artist) ?: return null
         if (entry.lines.isEmpty()) return null
         val plain = entry.lines.joinToString("\n")
         val filled = entry.filledTimesMs
@@ -152,7 +158,28 @@ object CustomLyricsStore {
 
     @Synchronized
     fun getEntry(title: String, artist: String): Entry? {
-        return cache[key(title, artist)]
+        val exact = cache[key(title, artist)]
+        if (exact != null) return exact
+
+        val cleaned = MetadataCleaner.clean(title, artist)
+        val tNorm = cleaned.cleanTitle.lowercase().filter { it.isLetterOrDigit() }.trim()
+        if (tNorm.isEmpty()) return null
+
+        val titleOnly = cache["$tNorm|"]
+        if (titleOnly != null) return titleOnly
+
+        for ((candidateKey, entry) in cache) {
+            val parts = candidateKey.split("|")
+            val firstPart = parts.firstOrNull() ?: ""
+            if (firstPart == tNorm) return entry
+        }
+        for ((candidateKey, entry) in cache) {
+            val firstPart = candidateKey.split("|").firstOrNull() ?: ""
+            if (firstPart.isNotEmpty() && (tNorm.contains(firstPart) || firstPart.contains(tNorm))) {
+                return entry
+            }
+        }
+        return null
     }
 
     @Synchronized

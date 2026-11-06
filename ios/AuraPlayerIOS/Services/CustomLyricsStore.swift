@@ -57,14 +57,19 @@ public final class CustomLyricsStore {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("custom_lyrics.json")
-        if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([String: Entry].self, from: data) {
-            entries = saved
-        } else if let bundleURL = Bundle.main.url(forResource: "custom_lyrics", withExtension: "json"),
-                  let data = try? Data(contentsOf: bundleURL),
-                  let bundled = try? JSONDecoder().decode([String: Entry].self, from: data) {
-            entries = bundled
-            try? data.write(to: url)
+        
+        var loaded: [String: Entry] = [:]
+        if let bundleURL = Bundle.main.url(forResource: "custom_lyrics", withExtension: "json"),
+           let data = try? Data(contentsOf: bundleURL),
+           let bundled = try? JSONDecoder().decode([String: Entry].self, from: data) {
+            loaded = bundled
         }
+        if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([String: Entry].self, from: data) {
+            for (k, v) in saved {
+                loaded[k] = v
+            }
+        }
+        entries = loaded
     }
     
     /// Same song under different video titles / singer spellings shares one key
@@ -72,7 +77,29 @@ public final class CustomLyricsStore {
         "\(ArtistPhotoService.normalize(track.coreTitle))|\(ArtistPhotoService.normalize(ArtistPhotoService.firstArtist(of: track.artist)))"
     }
     
-    public func entry(for track: MediaTrack) -> Entry? { entries[Self.key(for: track)] }
+    public func entry(for track: MediaTrack) -> Entry? {
+        let k = Self.key(for: track)
+        if let exact = entries[k] { return exact }
+        
+        let tNorm = ArtistPhotoService.normalize(track.coreTitle)
+        guard !tNorm.isEmpty else { return nil }
+        
+        if let titleOnly = entries["\(tNorm)|"] { return titleOnly }
+        
+        for (candidateKey, entry) in entries {
+            let parts = candidateKey.split(separator: "|")
+            if let firstPart = parts.first, firstPart == tNorm {
+                return entry
+            }
+        }
+        for (candidateKey, entry) in entries {
+            let firstPart = candidateKey.split(separator: "|").first.map(String.init) ?? ""
+            if !firstPart.isEmpty && (tNorm.contains(firstPart) || firstPart.contains(tNorm)) {
+                return entry
+            }
+        }
+        return nil
+    }
     
     public func hasLyrics(for track: MediaTrack) -> Bool { entries[Self.key(for: track)] != nil }
     
