@@ -15,6 +15,7 @@ public struct FullPlayerSheet: View {
     @State private var showTrimTimes: Bool = false
     @State private var showLyricsEditor: Bool = false
     @State private var showFullScreenVideo: Bool = false
+    @State private var showFullScreenLyrics: Bool = false
     
     public init(playback: PlaybackManager, playlistStore: PlaylistStore) {
         self.playback = playback
@@ -76,6 +77,9 @@ public struct FullPlayerSheet: View {
             .fullScreenCover(isPresented: $showFullScreenVideo) {
                 VideoFullScreenView(playback: playback)
             }
+            .fullScreenCover(isPresented: $showFullScreenLyrics) {
+                LyricsFullScreenView(playback: playback, playlistStore: playlistStore)
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView(playlistStore: playlistStore)
             }
@@ -103,23 +107,28 @@ public struct FullPlayerSheet: View {
             
             Spacer(minLength: 8)
             
-            mediaCenter(track: track, size: artworkDimension)
-                .frame(height: playback.displayMode == .video
-                       ? UIScreen.main.bounds.width * 9 / 16
-                       : artworkDimension + 20)
-            
-            // Video tab: the lyrics fill the space under the video, when there are any
-            if playback.displayMode == .video && hasLyrics {
-                LyricsView(playback: playback, compact: true)
+            if playback.displayMode == .lyrics {
+                mediaCenter(track: track, size: artworkDimension)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.top, 6)
-                    .mask(
-                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),
-                                               .init(color: .black, location: 0.88), .init(color: .clear, location: 1)],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
             } else {
-                Spacer(minLength: 12)
+                mediaCenter(track: track, size: artworkDimension)
+                    .frame(height: playback.displayMode == .video
+                           ? UIScreen.main.bounds.width * 9 / 16
+                           : artworkDimension + 20)
+                
+                // Video tab: the lyrics fill the space under the video, when there are any
+                if playback.displayMode == .video && hasLyrics {
+                    LyricsView(playback: playback, compact: true)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.top, 6)
+                        .mask(
+                            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),
+                                                   .init(color: .black, location: 0.88), .init(color: .clear, location: 1)],
+                                           startPoint: .top, endPoint: .bottom)
+                        )
+                } else {
+                    Spacer(minLength: 12)
+                }
             }
             
             if let error = playback.errorMessage {
@@ -154,26 +163,47 @@ public struct FullPlayerSheet: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 6)
             
-            HStack(spacing: 24) {
-                // Left Column: Artwork / Video / Lyrics
-                let mediaSize = max(140, min(geo.size.height - 80, geo.size.width * 0.44))
-                mediaCenter(track: track, size: mediaSize)
-                    .frame(width: playback.displayMode == .video ? mediaSize * 16 / 9 : mediaSize,
-                           height: mediaSize)
+            if playback.displayMode == .lyrics {
+                HStack(spacing: 20) {
+                    // Left Column: Info + Scrubber + Controls
+                    VStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        trackInfo(track: track)
+                        scrubber
+                        mediaControls
+                        Spacer(minLength: 0)
+                    }
+                    .frame(width: min(geo.size.width * 0.40, 320))
                     .padding(.leading, 24)
-                
-                // Right Column: Info + Scrubber + Controls
-                VStack(spacing: 8) {
-                    Spacer(minLength: 0)
-                    trackInfo(track: track)
-                    scrubber
-                    mediaControls
-                    Spacer(minLength: 0)
+                    
+                    // Right Column: Expansive Lyrics
+                    mediaCenter(track: track, size: geo.size.height - 80)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.trailing, 24)
                 }
-                .padding(.trailing, 24)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HStack(spacing: 24) {
+                    // Left Column: Artwork / Video / Lyrics
+                    let mediaSize = max(140, min(geo.size.height - 80, geo.size.width * 0.44))
+                    mediaCenter(track: track, size: mediaSize)
+                        .frame(width: playback.displayMode == .video ? mediaSize * 16 / 9 : mediaSize,
+                               height: mediaSize)
+                        .padding(.leading, 24)
+                    
+                    // Right Column: Info + Scrubber + Controls
+                    VStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        trackInfo(track: track)
+                        scrubber
+                        mediaControls
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.trailing, 24)
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
     
@@ -280,7 +310,21 @@ public struct FullPlayerSheet: View {
                 .scaleEffect(playback.isPlaying ? 1.0 : 0.88)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: playback.isPlaying)
             } else if playback.displayMode == .lyrics {
-                LyricsView(playback: playback)
+                ZStack(alignment: .bottomTrailing) {
+                    LyricsView(playback: playback)
+                    
+                    Button {
+                        Haptics.light()
+                        showFullScreenLyrics = true
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .padding(10)
+                }
             }
         }
     }
@@ -485,6 +529,14 @@ public struct FullPlayerSheet: View {
                 showChangeVideo = true
             } label: {
                 Label("Change Video Link", systemImage: "link")
+            }
+            
+            if hasLyrics {
+                Button {
+                    showFullScreenLyrics = true
+                } label: {
+                    Label("Full Screen Lyrics", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
             }
             
             Button {

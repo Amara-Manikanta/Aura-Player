@@ -4,11 +4,14 @@ public struct LyricsView: View {
     @ObservedObject var playback: PlaybackManager
     /// Smaller text and tighter spacing, for the strip under the video
     private let compact: Bool
+    /// Full-screen display mode with larger typography and breathing room
+    private let isFullScreen: Bool
     @State private var showEditor = false
     
-    public init(playback: PlaybackManager, compact: Bool = false) {
+    public init(playback: PlaybackManager, compact: Bool = false, isFullScreen: Bool = false) {
         self.playback = playback
         self.compact = compact
+        self.isFullScreen = isFullScreen
     }
     
     public var body: some View {
@@ -24,8 +27,8 @@ public struct LyricsView: View {
                     if let track = playback.currentTrack { LyricsEditorSheet(track: track, playback: playback) }
                 }
                 .overlay(alignment: .topTrailing) {
-                    // Fix wrong lyrics or timing
-                    if !compact, playback.currentTrack != nil, let l = playback.lyrics, l.isSynced || !(l.plainLyrics ?? "").isEmpty {
+                    // Fix wrong lyrics or timing (hidden in full-screen as full-screen has its own header button)
+                    if !compact && !isFullScreen, playback.currentTrack != nil, let l = playback.lyrics, l.isSynced || !(l.plainLyrics ?? "").isEmpty {
                         Button {
                             Haptics.light()
                             showEditor = true
@@ -58,7 +61,7 @@ public struct LyricsView: View {
                 let isDevotional = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : 16) {
+                        LazyVStack(alignment: isDevotional ? .leading : .center, spacing: compact ? 10 : (isFullScreen ? 20 : 16)) {
                             ForEach(Array(lyrics.syncedLines.enumerated()), id: \.element.id) { index, line in
                                 let isActive = (index == playback.currentLyricIndex)
                                 let isPast = (playback.currentLyricIndex >= 0 && index < playback.currentLyricIndex)
@@ -77,7 +80,7 @@ public struct LyricsView: View {
                                                         endPoint: .bottomTrailing
                                                     )
                                                 )
-                                                .frame(width: compact ? 6 : 7, height: compact ? 6 : 7)
+                                                .frame(width: compact ? 6 : (isFullScreen ? 8 : 7), height: compact ? 6 : (isFullScreen ? 8 : 7))
                                                 .shadow(color: AuraTheme.primary, radius: 4)
                                                 .transition(.scale.combined(with: .opacity))
                                         }
@@ -85,12 +88,12 @@ public struct LyricsView: View {
                                         Text(line.text)
                                             .font(
                                                 .system(
-                                                    size: compact ? (isActive ? 18 : 15) : (isActive ? 24 : 18),
+                                                    size: compact ? (isActive ? 18 : 15) : (isFullScreen ? (isActive ? 28 : 20) : (isActive ? 24 : 18)),
                                                     weight: isActive ? .bold : .medium,
                                                     design: .rounded
                                                 )
                                             )
-                                            .lineSpacing(compact ? 4 : 6)
+                                            .lineSpacing(compact ? 4 : (isFullScreen ? 8 : 6))
                                             .foregroundColor(
                                                 isActive
                                                     ? Color.white
@@ -100,13 +103,13 @@ public struct LyricsView: View {
                                             // long lines wrap inside the screen instead of widening the whole player
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
-                                    .padding(.horizontal, compact ? 16 : 20)
-                                    .padding(.vertical, compact ? 8 : 12)
+                                    .padding(.horizontal, compact ? 16 : (isFullScreen ? 26 : 20))
+                                    .padding(.vertical, compact ? 8 : (isFullScreen ? 14 : 12))
                                     .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                                     .background {
                                         if isActive {
                                             let isDev = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
-                                            RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                                            RoundedRectangle(cornerRadius: compact ? 14 : (isFullScreen ? 20 : 18), style: .continuous)
                                                 .fill(
                                                     LinearGradient(
                                                         colors: isDev ? [
@@ -123,7 +126,7 @@ public struct LyricsView: View {
                                                     )
                                                 )
                                                 .overlay(
-                                                    RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                                                    RoundedRectangle(cornerRadius: compact ? 14 : (isFullScreen ? 20 : 18), style: .continuous)
                                                         .stroke(
                                                             LinearGradient(
                                                                 colors: isDev ? [
@@ -154,9 +157,9 @@ public struct LyricsView: View {
                                 .id(line.id)
                             }
                         }
-                        .padding(.leading, isDevotional ? 22 : (compact ? 16 : 22))
-                        .padding(.trailing, isDevotional ? 135 : (compact ? 16 : 22))
-                        .padding(.vertical, compact ? 16 : 40)
+                        .padding(.leading, isDevotional ? (isFullScreen ? 28 : 22) : (compact ? 16 : 22))
+                        .padding(.trailing, isDevotional ? (isFullScreen ? 160 : 135) : (compact ? 16 : (isFullScreen ? 28 : 22)))
+                        .padding(.vertical, compact ? 16 : (isFullScreen ? 48 : 40))
                         .frame(maxWidth: .infinity)
                     }
                     .mask(
@@ -188,13 +191,13 @@ public struct LyricsView: View {
                 let isDevotional = !compact && playback.currentTrack.flatMap(DevotionalDeity.detect) != nil
                 ScrollView(showsIndicators: false) {
                     Text(plain)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: isFullScreen ? 22 : 18, weight: .medium))
                         .foregroundColor(AuraTheme.textSecondary)
-                        .lineSpacing(10)
+                        .lineSpacing(isFullScreen ? 14 : 10)
                         .multilineTextAlignment(isDevotional ? .leading : .center)
-                        .padding(.leading, isDevotional ? 22 : (compact ? 16 : 24))
-                        .padding(.trailing, isDevotional ? 135 : (compact ? 16 : 24))
-                        .padding(.vertical, 24)
+                        .padding(.leading, isDevotional ? (isFullScreen ? 28 : 22) : (compact ? 16 : (isFullScreen ? 32 : 24)))
+                        .padding(.trailing, isDevotional ? (isFullScreen ? 160 : 135) : (compact ? 16 : (isFullScreen ? 32 : 24)))
+                        .padding(.vertical, isFullScreen ? 36 : 24)
                         .frame(maxWidth: .infinity, alignment: isDevotional ? .leading : .center)
                 }
             } else {
