@@ -15,6 +15,9 @@ public struct TrackRowView: View {
     @State private var showChangeVideo: Bool = false
     @State private var notice: String?
     @State private var showTrimTimes: Bool = false
+    @State private var showRename: Bool = false
+    @State private var newTitle: String = ""
+    @State private var newArtist: String = ""
     
     public init(
         track: MediaTrack,
@@ -107,6 +110,14 @@ public struct TrackRowView: View {
                         } label: {
                             Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
                         }
+
+                        Button {
+                            newTitle = track.title
+                            newArtist = track.artist
+                            showRename = true
+                        } label: {
+                            Label("Rename Song…", systemImage: "pencil")
+                        }
                         
                         Button {
                             onAddToPlaylist()
@@ -181,6 +192,24 @@ public struct TrackRowView: View {
         }
         .sheet(isPresented: $showTrimTimes) {
             TrimTimesSheet(track: track, store: PlaylistStore.shared, playback: PlaybackManager.shared)
+        }
+        .alert("Rename Song", isPresented: $showRename) {
+            TextField("Song name", text: $newTitle)
+            TextField("Artist", text: $newArtist)
+            Button("Save") {
+                let title = newTitle.trimmingCharacters(in: .whitespaces)
+                guard !title.isEmpty else { return }
+                let artist = newArtist.trimmingCharacters(in: .whitespaces)
+                let finalArtist = artist.isEmpty ? "Unknown Artist" : artist
+                PlaylistStore.shared.renameSong(track, title: title, artist: finalArtist)
+                if PlaybackManager.shared.currentTrack?.id == track.id {
+                    PlaybackManager.shared.currentTrack?.title = title
+                    PlaybackManager.shared.currentTrack?.artist = finalArtist
+                    PlaybackManager.shared.updateNowPlayingInfo()
+                }
+                Haptics.success()
+            }
+            Button("Cancel", role: .cancel) {}
         }
         .alert("Playlists", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
             Button("OK", role: .cancel) {}

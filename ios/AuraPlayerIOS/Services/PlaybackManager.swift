@@ -638,22 +638,27 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
         let commandCenter = MPRemoteCommandCenter.shared()
         
         commandCenter.playCommand.addTarget { [weak self] _ in
+            AppLog.log("remote command: playCommand")
             self?.resume()
             return .success
         }
         commandCenter.pauseCommand.addTarget { [weak self] _ in
+            AppLog.log("remote command: pauseCommand")
             self?.pause()
             return .success
         }
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            AppLog.log("remote command: togglePlayPauseCommand")
             self?.togglePlayPause()
             return .success
         }
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
+            AppLog.log("remote command: nextTrackCommand")
             self?.playNext()
             return .success
         }
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
+            AppLog.log("remote command: previousTrackCommand")
             self?.playPrevious()
             return .success
         }
@@ -704,8 +709,10 @@ public class PlaybackManager: NSObject, ObservableObject, WKScriptMessageHandler
     public func updateNowPlayingInfo() {
         guard let track = currentTrack else {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            MPNowPlayingInfoCenter.default().playbackState = .stopped
             return
         }
+        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
         
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: track.title,

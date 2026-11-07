@@ -1,10 +1,16 @@
 import SwiftUI
 import UIKit
+import AppIntents
 
 @main
 struct AuraPlayerIOSApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
+    
+    init() {
+        // Tells Siri and Shortcuts to re-read the phrases (they are registered when the app is installed)
+        AuraPlayerShortcuts.updateAppShortcutParameters()
+    }
     
     var body: some Scene {
         WindowGroup {

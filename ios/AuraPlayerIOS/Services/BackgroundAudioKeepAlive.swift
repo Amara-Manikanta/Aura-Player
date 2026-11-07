@@ -97,11 +97,20 @@ public class BackgroundAudioKeepAlive {
         }
     }
     
-    /// The silent loop is off: the log showed iOS pausing the video about half a second after it
-    /// started (the second audio source interrupted the web player's audio session).
+    /// A silent loop makes the app a real audio player to iOS, which is what sends it the lock screen, headset and
+    /// Siri commands ("pause", "next song"). The web player's own sound comes from another process.
     public func start() {
         isStarted = true
-        AppLog.log("keep-alive start skipped")
+        Self.activateSession()
+        
+        if audioPlayer == nil {
+            setupPlayer()
+        }
+        
+        if audioPlayer?.isPlaying != true {
+            audioPlayer?.play()
+        }
+        AppLog.log("keep-alive playing=\(audioPlayer?.isPlaying == true)")
     }
     
     public func stop() {

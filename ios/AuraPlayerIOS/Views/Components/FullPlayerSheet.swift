@@ -16,6 +16,9 @@ public struct FullPlayerSheet: View {
     @State private var showLyricsEditor: Bool = false
     @State private var showFullScreenVideo: Bool = false
     @State private var showFullScreenLyrics: Bool = false
+    @State private var showRename: Bool = false
+    @State private var newTitle: String = ""
+    @State private var newArtist: String = ""
     
     public init(playback: PlaybackManager, playlistStore: PlaylistStore) {
         self.playback = playback
@@ -119,6 +122,23 @@ public struct FullPlayerSheet: View {
             }
             .sheet(isPresented: $showTrimTimes) {
                 TrimTimesSheet(track: track, store: playlistStore, playback: playback)
+            }
+            .alert("Rename Song", isPresented: $showRename) {
+                TextField("Song name", text: $newTitle)
+                TextField("Artist", text: $newArtist)
+                Button("Save") {
+                    guard let track = playback.currentTrack else { return }
+                    let title = newTitle.trimmingCharacters(in: .whitespaces)
+                    guard !title.isEmpty else { return }
+                    let artist = newArtist.trimmingCharacters(in: .whitespaces)
+                    let finalArtist = artist.isEmpty ? "Unknown Artist" : artist
+                    playlistStore.renameSong(track, title: title, artist: finalArtist)
+                    playback.currentTrack?.title = title
+                    playback.currentTrack?.artist = finalArtist
+                    playback.updateNowPlayingInfo()
+                    Haptics.success()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         )
     }
@@ -534,6 +554,14 @@ public struct FullPlayerSheet: View {
                 Haptics.light()
             } label: {
                 Label("Copy Song Name", systemImage: "doc.on.doc")
+            }
+
+            Button {
+                newTitle = track.title
+                newArtist = track.artist
+                showRename = true
+            } label: {
+                Label("Rename Song…", systemImage: "pencil")
             }
 
             Button {

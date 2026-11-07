@@ -1,4 +1,5 @@
 import SwiftUI
+import AppIntents
 
 public struct SettingsView: View {
     @ObservedObject var playlistStore: PlaylistStore
@@ -174,6 +175,27 @@ public struct SettingsView: View {
                             .padding(.horizontal, 16)
                             .transition(.opacity)
                         }
+                        
+                        // Siri
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("SIRI")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(AuraTheme.textTertiary)
+                                .tracking(1)
+                                .padding(.horizontal, 4)
+                            
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Say: \"Next song on Aura Player\", \"Pause Aura Player\", \"Play Aura Player\", \"What's playing on Aura Player\".")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AuraTheme.textSecondary)
+                                ShortcutsLink()
+                                    .shortcutsLinkStyle(.automaticOutline)
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .liquidGlass(cornerRadius: 14)
+                        }
+                        .padding(.horizontal, 16)
                         
                         // Section 3: Library & Data
                         VStack(alignment: .leading, spacing: 12) {

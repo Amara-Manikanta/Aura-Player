@@ -13,6 +13,9 @@ public struct PlaylistDetailView: View {
     @State private var isTargetedForDrop: Bool = false
     @State private var showRenameAlert: Bool = false
     @State private var renameText: String = ""
+    @State private var trackToRename: MediaTrack? = nil
+    @State private var renameTrackTitle: String = ""
+    @State private var renameTrackArtist: String = ""
     @State private var playlistToMerge: Playlist? = nil
     @State private var trackToChangeVideo: MediaTrack? = nil
     @State private var trackToTrim: MediaTrack? = nil
@@ -308,6 +311,11 @@ public struct PlaylistDetailView: View {
                                 onToggleFavorite: {
                                     store.toggleFavorite(track: track)
                                 },
+                                onRename: {
+                                    trackToRename = track
+                                    renameTrackTitle = track.title
+                                    renameTrackArtist = track.artist
+                                },
                                 onChangeVideo: {
                                     trackToChangeVideo = track
                                 },
@@ -360,6 +368,26 @@ public struct PlaylistDetailView: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .alert("Rename Song", isPresented: Binding(
+            get: { trackToRename != nil },
+            set: { if !$0 { trackToRename = nil } }
+        )) {
+            TextField("Song Title", text: $renameTrackTitle)
+            TextField("Artist", text: $renameTrackArtist)
+            Button("Save") {
+                if let t = trackToRename {
+                    let title = renameTrackTitle.trimmingCharacters(in: .whitespaces)
+                    if !title.isEmpty {
+                        let artist = renameTrackArtist.trimmingCharacters(in: .whitespaces)
+                        let finalArtist = artist.isEmpty ? "Unknown Artist" : artist
+                        store.renameSong(t, title: title, artist: finalArtist)
+                        playback.applyRename(to: t.id, title: title, artist: finalArtist)
+                    }
+                }
+                trackToRename = nil
+            }
+            Button("Cancel", role: .cancel) { trackToRename = nil }
         }
         .sheet(item: $playlistToMerge) { pl in
             MergePlaylistSheet(
@@ -429,6 +457,7 @@ public struct TrackRowView: View {
     public let isPlaying: Bool
     public let onPlay: () -> Void
     public let onToggleFavorite: () -> Void
+    public var onRename: () -> Void = {}
     public let onChangeVideo: () -> Void
     public var onSetTrim: () -> Void = {}
     /// Other playlists a song can be moved or copied to
@@ -548,6 +577,11 @@ public struct TrackRowView: View {
                     Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
                 }
                 Button {
+                    onRename()
+                } label: {
+                    Label("Rename Song...", systemImage: "pencil")
+                }
+                Button {
                     onChangeVideo()
                 } label: {
                     Label("Change Video Link...", systemImage: "link.badge.plus")
@@ -605,6 +639,11 @@ public struct TrackRowView: View {
                 PlatformShareService.share(text: text)
             } label: {
                 Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
+            }
+            Button {
+                onRename()
+            } label: {
+                Label("Rename Song...", systemImage: "pencil")
             }
             Button {
                 onChangeVideo()
