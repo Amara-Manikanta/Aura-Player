@@ -25,6 +25,22 @@
 
 ## 📸 Screenshots
 
+### 📱 Android Experience (Jetpack Compose & Material 3)
+
+<p align="center">
+  <img src="screenshots/android_01_full_player.png" width="31%" alt="Android Full Player with Album Art"/>
+  <img src="screenshots/android_02_video_lyrics.png" width="31%" alt="HD Video + Synced Telugu Lyrics"/>
+  <img src="screenshots/android_03_karaoke_lyrics.png" width="31%" alt="Karaoke Lyrics Mode"/>
+</p>
+
+<p align="center">
+  <img src="screenshots/android_04_search.png" width="31%" alt="Instant Search & Suggestions"/>
+  <img src="screenshots/android_05_library.png" width="31%" alt="Library, Playlists & Offline Backup"/>
+  <img src="screenshots/android_06_home.png" width="31%" alt="Home Feed & Quick Access"/>
+</p>
+
+### 🍏 iOS Experience (SwiftUI & Liquid Glass)
+
 <p align="center">
   <img src="screenshots/01_full_player.png" width="31%" alt="Full player: audio, video and lyrics"/>
   <img src="screenshots/02_home_feed.png" width="31%" alt="Home and mini player"/>
@@ -71,14 +87,13 @@
 
 ### Look
 - **Liquid-glass interface** on all three apps.
-- **SanDisk Sansa e260 retro theme** on iPhone and Android, with an authentic virtual click-wheel, haptic tick feedback, and animated LED visualizer (Settings → Themes).
 - **Full rotation support** across vertical (portrait) and horizontal (landscape) orientations on iOS and Android.
 
 ---
 
 ## 📲 Android Installation (Direct APK)
 
-AuraPlayer is distributed directly as an APK to provide ad-free YouTube streaming, background playback, and custom synced lyrics without Play Store restrictions.
+AuraPlayer is distributed directly as an APK to provide seamless high-definition streaming, background playback, and custom synced lyrics without app store constraints.
 
 ### Step-by-Step Guide:
 
@@ -119,7 +134,7 @@ Aura-Player/
 |---|---|---|---|
 | Playback | YouTube player in a web view | Audio through AVPlayer (stream found with `yt-dlp`); video through a web view | Media3 and YouTube |
 | Custom lyrics editor | ✅ | ✅ | ✅ |
-| Retro Sansa e260 theme | ✅ | – | ✅ |
+| Audio / Video / Synced Lyrics modes | ✅ | ✅ | ✅ |
 | Mac ↔ iPhone sync | ✅ | ✅ | – |
 | Share links | ✅ | ✅ | ✅ |
 | Import shared links | ✅ | not yet | ✅ |
