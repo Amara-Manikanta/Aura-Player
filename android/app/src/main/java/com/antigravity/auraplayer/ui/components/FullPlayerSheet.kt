@@ -306,9 +306,18 @@ fun FullPlayerSheet(
                     }
                 } else if (displayMode == DisplayMode.VIDEO && t.youtubeId != null) {
                     val hasLyrics = !syncedLyrics.isNullOrEmpty() || !plainLyrics.isNullOrBlank()
-                    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = if (hasLyrics) Arrangement.Top else Arrangement.Center) {
-                        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
+                    Column(
+                        Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = if (hasLyrics) Arrangement.Top else Arrangement.Center
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+                        ) {
                             VideoPlayerView(playbackManager = playbackManager)
                         }
                         Row(
@@ -328,7 +337,12 @@ fun FullPlayerSheet(
                         }
                         // The lyrics fill the space under the video, when there are any
                         if (hasLyrics) {
-                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .glass(RoundedCornerShape(18.dp), alpha = 0.08f)
+                            ) {
                                 LyricsView(
                                     syncedLyrics = syncedLyrics,
                                     plainLyrics = plainLyrics,
@@ -356,30 +370,62 @@ fun FullPlayerSheet(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
             // Title, singer, 👍 👎 ♥
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(t.title, color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(t.artist, color = TextSecondary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        t.title, color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        t.artist, color = TextSecondary, fontSize = 14.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
                     t.trimLabel?.let { Text("✂ Plays $it", color = NeonPurple, fontSize = 12.sp) }
                 }
-                if (t.youtubeId != null) {
-                    val confirmed = playbackManager.isCurrentVideoConfirmed()
-                    IconButton(onClick = { playbackManager.confirmCurrentVideo() }) {
-                        Icon(if (confirmed) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = "Right video",
-                            tint = if (confirmed) SuccessGreen else TextSecondary)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (t.youtubeId != null) {
+                        val confirmed = playbackManager.isCurrentVideoConfirmed()
+                        IconButton(
+                            onClick = { playbackManager.confirmCurrentVideo() },
+                            modifier = Modifier.size(38.dp).glass(CircleShape, alpha = if (confirmed) 0.25f else 0.12f)
+                        ) {
+                            Icon(
+                                if (confirmed) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                contentDescription = "Right video",
+                                tint = if (confirmed) SuccessGreen else TextSecondary,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { playbackManager.rejectCurrentVideo() },
+                            modifier = Modifier.size(38.dp).glass(CircleShape, alpha = 0.12f)
+                        ) {
+                            Icon(
+                                Icons.Outlined.ThumbDown,
+                                contentDescription = "Wrong video",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
                     }
-                    IconButton(onClick = { playbackManager.rejectCurrentVideo() }) {
-                        Icon(Icons.Outlined.ThumbDown, contentDescription = "Wrong video", tint = TextSecondary)
+                    val fav = repository.isFavorite(t)
+                    IconButton(
+                        onClick = { repository.toggleFavorite(t) },
+                        modifier = Modifier.size(38.dp).glass(CircleShape, alpha = if (fav) 0.25f else 0.12f)
+                    ) {
+                        Icon(
+                            if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (fav) NeonPurple else TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
-                }
-                val fav = repository.isFavorite(t)
-                IconButton(onClick = { repository.toggleFavorite(t) }) {
-                    Icon(if (fav) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Favorite",
-                        tint = if (fav) NeonPurple else TextSecondary)
                 }
             }
 

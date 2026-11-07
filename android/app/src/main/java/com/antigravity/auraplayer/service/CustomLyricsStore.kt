@@ -28,10 +28,14 @@ object CustomLyricsStore {
         val filledTimesMs: List<Long>?
             get() {
                 if (lines.isEmpty()) return null
-                val known = timesMs.mapIndexedNotNull { i, t -> t?.let { i to it } }
+                val known = timesMs.take(lines.size).mapIndexedNotNull { i, t -> t?.let { i to it } }
                 if (known.size >= 2) {
                     val out = LongArray(lines.size)
-                    for ((i, t) in known) { out[i] = t }
+                    for ((i, t) in known) {
+                        if (i < lines.size) {
+                            out[i] = t
+                        }
+                    }
                     for (i in lines.indices) {
                         if (i >= timesMs.size || timesMs[i] == null) {
                             val before = known.lastOrNull { it.first < i }

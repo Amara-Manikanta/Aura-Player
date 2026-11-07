@@ -101,7 +101,7 @@ fun LyricsView(
                             blendMode = BlendMode.DstIn
                         )
                     },
-                contentPadding = PaddingValues(vertical = if (compact) 24.dp else 120.dp),
+                contentPadding = PaddingValues(vertical = if (compact) 36.dp else 120.dp),
                 verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 18.dp)
             ) {
                 itemsIndexed(syncedLyrics) { index, line ->
@@ -159,11 +159,11 @@ fun LyricsView(
                                 horizontal = if (compact) 12.dp else 18.dp,
                                 vertical = if (compact) 6.dp else 10.dp
                             ),
-                        contentAlignment = if (deity != null) Alignment.CenterStart else Alignment.Center
+                        contentAlignment = if (deity != null && !compact) Alignment.CenterStart else Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = if (deity != null) Arrangement.Start else Arrangement.Center,
+                            horizontalArrangement = if (deity != null && !compact) Arrangement.Start else Arrangement.Center,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             if (isActive && isPlaying) {
@@ -193,7 +193,7 @@ fun LyricsView(
                                 ),
                                 color = if (isActive) (if (deity != null) Color(0xFFFFFDE7) else Color.White) else Color.White.copy(alpha = alpha),
                                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                textAlign = if (deity != null) TextAlign.Start else TextAlign.Center
+                                textAlign = if (deity != null && !compact) TextAlign.Start else TextAlign.Center
                             )
                         }
                     }
