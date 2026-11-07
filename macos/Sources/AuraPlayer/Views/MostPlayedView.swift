@@ -3,6 +3,7 @@ import SwiftUI
 public struct MostPlayedView: View {
     @Bindable var store: PlaylistStore
     @Bindable var playback: PlaybackManager
+    @State private var trackToRename: MediaTrack?
     
     public init(store: PlaylistStore, playback: PlaybackManager) {
         self.store = store
@@ -10,6 +11,10 @@ public struct MostPlayedView: View {
     }
     
     public var body: some View {
+        content.renameSongAlert(track: $trackToRename, store: store, playback: playback)
+    }
+    
+    private var content: some View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 16) {
@@ -100,7 +105,8 @@ public struct MostPlayedView: View {
                             },
                             onToggleFavorite: {
                                 store.toggleFavorite(track: track)
-                            }
+                            },
+                            onRename: { trackToRename = track }
                         )
                     }
                 }

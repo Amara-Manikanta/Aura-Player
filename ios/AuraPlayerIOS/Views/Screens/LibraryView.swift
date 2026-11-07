@@ -5,17 +5,13 @@ public struct LibraryView: View {
     @ObservedObject var playback: PlaybackManager
     
     @State private var showNewPlaylistDialog: Bool = false
-    @State private var backupURL: URL?
     /// The playlist just made: opened straight away so it's clear it worked (new ones sit at the bottom of a long list)
     @State private var createdPlaylist: Playlist?
     @State private var newPlaylistTitle: String = ""
     @State private var playlistToRename: Playlist?
     @State private var renameText: String = ""
     @State private var playlistToMerge: Playlist?
-    @State private var showFileImporter: Bool = false
-    @State private var showResetConfirmation: Bool = false
     @State private var showSettings: Bool = false
-    @State private var statusToast: String?
     
     public init(playlistStore: PlaylistStore, playback: PlaybackManager) {
         self.playlistStore = playlistStore
@@ -98,17 +94,6 @@ public struct LibraryView: View {
                             }
                             .buttonStyle(AuraPlainButtonStyle())
                             
-                            Button {
-                                showSettings = true
-                            } label: {
-                                LibraryShortcutRow(
-                                    title: "Settings & Themes",
-                                    subtitle: "Switch between Modern Glass and Sansa e260 Retro",
-                                    icon: "gearshape.fill",
-                                    iconColor: Color(hex: 0x00D4FF)
-                                )
-                            }
-                            .buttonStyle(AuraPlainButtonStyle())
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
@@ -206,11 +191,7 @@ public struct LibraryView: View {
                                         Button {
                                             Haptics.light()
                                             let text = PlatformShareService.formatWhatsAppPlaylistShare(name: pl.name, tracks: pl.tracks)
-                                            let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-                                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                                               let rootVC = windowScene.windows.first?.rootViewController {
-                                                rootVC.present(av, animated: true)
-                                            }
+                                            ShareSheet.present(text: text)
                                         } label: {
                                             Label("Share Playlist (WhatsApp / Link)", systemImage: "square.and.arrow.up")
                                         }
@@ -242,114 +223,6 @@ public struct LibraryView: View {
                         }
                         .padding(.horizontal, 16)
                         
-                        Divider().overlay(AuraTheme.glassBorder).padding(.horizontal, 16).padding(.top, 10)
-                        
-                        // Data & Backup Section
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Data & Backup")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(AuraTheme.textPrimary)
-                                .padding(.horizontal, 4)
-                            
-                            VStack(spacing: 8) {
-                                // 1. Share / Export Backup
-                                if let backupURL {
-                                    ShareLink(
-                                        item: backupURL,
-                                        preview: SharePreview("AuraPlayer Library Backup", icon: Image(systemName: "arrow.down.doc.fill"))
-                                    ) {
-                                        HStack(spacing: 12) {
-                                            Image(systemName: "square.and.arrow.up")
-                                                .font(.system(size: 18, weight: .semibold))
-                                                .foregroundColor(AuraTheme.primary)
-                                                .frame(width: 32, height: 32)
-                                            
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text("Export Library Backup")
-                                                    .font(.system(size: 15, weight: .semibold))
-                                                    .foregroundColor(AuraTheme.textPrimary)
-                                                Text("Save playlists to Files, iCloud Drive, or AirDrop")
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(AuraTheme.textSecondary)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "chevron.right")
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundColor(AuraTheme.textTertiary)
-                                        }
-                                        .padding(12)
-                                        .liquidGlass(cornerRadius: 12)
-                                    }
-                                    .buttonStyle(AuraPlainButtonStyle())
-                                }
-                                
-                                // 2. Import Backup from Files
-                                Button {
-                                    showFileImporter = true
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "square.and.arrow.down")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(Color.teal)
-                                            .frame(width: 32, height: 32)
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Import Backup from Files")
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(AuraTheme.textPrimary)
-                                            Text("Restore playlists from any .json backup")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(AuraTheme.textSecondary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(AuraTheme.textTertiary)
-                                    }
-                                    .padding(12)
-                                    .liquidGlass(cornerRadius: 12)
-                                }
-                                .buttonStyle(AuraPlainButtonStyle())
-                                
-                                // 3. Reset to Bundled macOS Library
-                                Button {
-                                    showResetConfirmation = true
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "arrow.counterclockwise.circle")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(Color.orange)
-                                            .frame(width: 32, height: 32)
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Restore Bundled Library")
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(AuraTheme.textPrimary)
-                                            Text("Reload all 17 playlists and 3,432 original tracks")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(AuraTheme.textSecondary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(AuraTheme.textTertiary)
-                                    }
-                                    .padding(12)
-                                    .liquidGlass(cornerRadius: 12)
-                                }
-                                .buttonStyle(AuraPlainButtonStyle())
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        
-                        if let toast = statusToast {
-                            Text(toast)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(AuraTheme.primary)
-                                .padding(.horizontal, 20)
-                                .transition(.opacity)
-                        }
-                        
                         Spacer(minLength: 120)
                     }
                 }
@@ -357,8 +230,6 @@ public struct LibraryView: View {
             .navigationDestination(item: $createdPlaylist) { pl in
                 PlaylistDetailView(playlist: pl, playlistStore: playlistStore, playback: playback)
             }
-            // The backup file is made once, off the main thread (it used to be rebuilt on every redraw)
-            .task { backupURL = await playlistStore.createBackupFile() }
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -407,37 +278,6 @@ public struct LibraryView: View {
             }
             .sheet(item: $playlistToMerge) { pl in
                 MergePlaylistSheet(store: playlistStore, sourcePlaylist: pl)
-            }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let first = urls.first {
-                        let ok = playlistStore.importBackup(from: first)
-                        statusToast = ok ? "Library restored successfully!" : "Failed to parse backup JSON."
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { statusToast = nil }
-                    }
-                case .failure(let err):
-                    statusToast = "Error picking file: \(err.localizedDescription)"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { statusToast = nil }
-                }
-            }
-            .confirmationDialog(
-                "Restore Bundled Library?",
-                isPresented: $showResetConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Restore All 3,432 Original Tracks", role: .destructive) {
-                    playlistStore.resetToBundled()
-                    statusToast = "Restored all 17 playlists and 3,432 tracks!"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { statusToast = nil }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will reload the initial macOS library with all 17 playlists and 3,432 tracks from the embedded bundle.")
             }
         }
     }

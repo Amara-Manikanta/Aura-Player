@@ -354,10 +354,6 @@ public struct PlaylistDetailView: View {
     
     private func sharePlaylist() {
         let text = PlatformShareService.formatWhatsAppPlaylistShare(name: currentPlaylist.name, tracks: currentPlaylist.tracks)
-        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(av, animated: true)
-        }
+        ShareSheet.present(text: text)
     }
 }

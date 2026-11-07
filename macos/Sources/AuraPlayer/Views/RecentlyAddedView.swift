@@ -6,6 +6,7 @@ public struct RecentlyAddedView: View {
     @Bindable var store: PlaylistStore
     @Bindable var playback: PlaybackManager
     @State private var trackToTrim: MediaTrack?
+    @State private var trackToRename: MediaTrack?
     
     public init(store: PlaylistStore, playback: PlaybackManager) {
         self.store = store
@@ -30,6 +31,10 @@ public struct RecentlyAddedView: View {
     }
     
     public var body: some View {
+        content.renameSongAlert(track: $trackToRename, store: store, playback: playback)
+    }
+    
+    private var content: some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -60,6 +65,7 @@ public struct RecentlyAddedView: View {
                                     isPlaying: playback.isPlaying && playback.currentTrack?.id == track.id,
                                     onPlay: { playback.playTrack(track, inQueue: tracks, context: .none) },
                                     onToggleFavorite: { store.toggleFavorite(track: track) },
+                                    onRename: { trackToRename = track },
                                     onChangeVideo: {},
                                     onSetTrim: { trackToTrim = track },
                                     onRemove: {}

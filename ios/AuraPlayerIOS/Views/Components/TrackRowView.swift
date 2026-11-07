@@ -102,11 +102,7 @@ public struct TrackRowView: View {
                         Button {
                             Haptics.light()
                             let text = PlatformShareService.formatWhatsAppSongShare(track: track)
-                            let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                               let rootVC = windowScene.windows.first?.rootViewController {
-                                rootVC.present(av, animated: true)
-                            }
+                            ShareSheet.present(text: text)
                         } label: {
                             Label("Share Song (WhatsApp / Link)", systemImage: "square.and.arrow.up")
                         }

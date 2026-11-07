@@ -15,6 +15,9 @@ public struct SansaPlayerView: View {
     
     // Sheets
     @State private var showAddToPlaylist: Bool = false
+    @State private var showRename: Bool = false
+    @State private var newTitle: String = ""
+    @State private var newArtist: String = ""
     @State private var showChangeVideo: Bool = false
     @State private var showTrimTimes: Bool = false
     
@@ -105,6 +108,14 @@ public struct SansaPlayerView: View {
                                 showAddToPlaylist = true
                             } label: {
                                 Label("Add to Playlist", systemImage: "text.badge.plus")
+                            }
+                            
+                            Button {
+                                newTitle = playback.currentTrack?.title ?? ""
+                                newArtist = playback.currentTrack?.artist ?? ""
+                                showRename = true
+                            } label: {
+                                Label("Rename Song…", systemImage: "pencil")
                             }
                             
                             Button {
@@ -487,6 +498,23 @@ public struct SansaPlayerView: View {
                     }
                     .padding(.bottom, 20)
                 }
+            }
+            .alert("Rename Song", isPresented: $showRename) {
+                TextField("Song name", text: $newTitle)
+                TextField("Artist", text: $newArtist)
+                Button("Save") {
+                    guard let track = playback.currentTrack else { return }
+                    let title = newTitle.trimmingCharacters(in: .whitespaces)
+                    guard !title.isEmpty else { return }
+                    let artist = newArtist.trimmingCharacters(in: .whitespaces)
+                    let finalArtist = artist.isEmpty ? "Unknown Artist" : artist
+                    playlistStore.renameSong(track, title: title, artist: finalArtist)
+                    playback.currentTrack?.title = title
+                    playback.currentTrack?.artist = finalArtist
+                    playback.updateNowPlayingInfo()
+                    Haptics.success()
+                }
+                Button("Cancel", role: .cancel) {}
             }
             .sheet(isPresented: $showAddToPlaylist) {
                 AddToPlaylistSheet(track: track, playlistStore: playlistStore)

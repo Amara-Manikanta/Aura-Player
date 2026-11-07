@@ -3,6 +3,7 @@ import SwiftUI
 public struct ArtistDetailView: View {
     @Bindable var store: PlaylistStore
     @Bindable var playback: PlaybackManager
+    @State private var trackToRename: MediaTrack?
     let artistName: String
     let onBack: () -> Void
     
@@ -18,6 +19,10 @@ public struct ArtistDetailView: View {
     }
     
     public var body: some View {
+        content.renameSongAlert(track: $trackToRename, store: store, playback: playback)
+    }
+    
+    private var content: some View {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 16) {
@@ -117,7 +122,8 @@ public struct ArtistDetailView: View {
                             },
                             onToggleFavorite: {
                                 store.toggleFavorite(track: track)
-                            }
+                            },
+                            onRename: { trackToRename = track }
                         )
                     }
                 }
@@ -134,6 +140,7 @@ public struct TrackRowWithPlayCountView: View {
     public let isPlaying: Bool
     public let onPlay: () -> Void
     public let onToggleFavorite: () -> Void
+    public var onRename: () -> Void = {}
     
     @State private var isHovered: Bool = false
     
@@ -213,6 +220,17 @@ public struct TrackRowWithPlayCountView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 50, alignment: .trailing)
             
+            // Rename (also on right click)
+            Button {
+                onRename()
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary.opacity(isHovered ? 1.0 : 0.0))
+            }
+            .buttonStyle(.plain)
+            .help("Rename Song")
+            
             // Favorite Toggle
             Button {
                 onToggleFavorite()
@@ -222,6 +240,9 @@ public struct TrackRowWithPlayCountView: View {
                     .foregroundStyle(track.isFavorite ? .red : .secondary.opacity(isHovered ? 1.0 : 0.0))
             }
             .buttonStyle(.plain)
+        }
+        .contextMenu {
+            Button("Rename Song…") { onRename() }
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
