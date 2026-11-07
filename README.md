@@ -28,15 +28,15 @@
 ### 📱 Android Experience (Jetpack Compose & Material 3)
 
 <p align="center">
-  <img src="screenshots/android_01_full_player.png" width="31%" alt="Android Full Player with Album Art"/>
+  <img src="screenshots/android_01_full_player.png" width="31%" alt="Android Full Player: Chuttamalle (Devara)"/>
   <img src="screenshots/android_02_video_lyrics.png" width="31%" alt="HD Video + Synced Telugu Lyrics"/>
-  <img src="screenshots/android_03_karaoke_lyrics.png" width="31%" alt="Karaoke Lyrics Mode"/>
+  <img src="screenshots/android_03_karaoke_lyrics.png" width="31%" alt="Live Synchronized Telugu Lyrics"/>
 </p>
 
 <p align="center">
-  <img src="screenshots/android_04_search.png" width="31%" alt="Instant Search & Suggestions"/>
-  <img src="screenshots/android_05_library.png" width="31%" alt="Library, Playlists & Offline Backup"/>
-  <img src="screenshots/android_06_home.png" width="31%" alt="Home Feed & Quick Access"/>
+  <img src="screenshots/android_06_fullscreen_lyrics.png" width="31%" alt="Full Screen Immersive Lyrics"/>
+  <img src="screenshots/android_04_search.png" width="31%" alt="Instant Music & Video Search"/>
+  <img src="screenshots/android_05_library.png" width="31%" alt="On-Device Library & Playlists"/>
 </p>
 
 ### 🍏 iOS Experience (SwiftUI & Liquid Glass)

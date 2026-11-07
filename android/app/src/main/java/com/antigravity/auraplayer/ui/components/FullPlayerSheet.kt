@@ -32,6 +32,7 @@ import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.theme.*
 
 /** Now Playing, like the iPhone app: Audio / Video / Lyrics, 👍 👎 ♥, repeat, song options. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerSheet(
     playbackManager: PlaybackManager,
