@@ -1,6 +1,9 @@
 package com.antigravity.auraplayer.ui.screens
 
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.antigravity.auraplayer.data.PlaylistRepository
 import com.antigravity.auraplayer.service.PlaybackManager
 import com.antigravity.auraplayer.ui.components.SleepTimerDialog
@@ -39,6 +43,73 @@ fun SettingsScreen(repository: PlaylistRepository, playbackManager: PlaybackMana
     val sleepTimerMinutes by playbackManager.sleepTimerMinutes.collectAsState()
     val sleepTimerRemainingSeconds by playbackManager.sleepTimerRemainingSeconds.collectAsState()
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(repository.exportBackupJson().toByteArray(Charsets.UTF_8))
+                }
+                Toast.makeText(context, "Backup saved to device", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to save backup: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).readText()
+                }
+                if (!jsonString.isNullOrBlank()) {
+                    val result = repository.importBackup(jsonString)
+                    result.onSuccess { (plCount, trackCount) ->
+                        Toast.makeText(
+                            context,
+                            "Library restored! (%,d playlists, %,d tracks)".format(plCount, trackCount),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }.onFailure { err ->
+                        Toast.makeText(
+                            context,
+                            "Failed to parse backup JSON: ${err.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    Toast.makeText(context, "Selected file is empty", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error reading backup file: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun shareBackupFile() {
+        try {
+            val file = repository.exportBackupFile()
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "AuraPlayer Library Backup")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Export Library Backup"))
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to share backup: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -229,12 +300,52 @@ fun SettingsScreen(repository: PlaylistRepository, playbackManager: PlaybackMana
                 }
             }
 
-            Section("LIBRARY")
+            Section("DATA & BACKUP")
             Row(Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LibraryMusic, null, tint = TextPrimary)
                 Spacer(Modifier.width(12.dp))
                 Text("Your library", color = TextPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text("${playlists.size} playlists • %,d songs".format(repository.allUniqueTracks.size), color = TextSecondary, fontSize = 13.sp)
+            }
+            Row(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable { shareBackupFile() }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Share, null, tint = TextPrimary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Export Library Backup", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Share JSON backup via WhatsApp, Drive, or files", color = TextSecondary, fontSize = 12.sp)
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
+            }
+            Row(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable {
+                    createDocumentLauncher.launch("AuraPlayer_Library_Backup.json")
+                }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Download, null, tint = TextPrimary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Save Backup to Device", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Save JSON backup file to device or Downloads", color = TextSecondary, fontSize = 12.sp)
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
+            }
+            Row(
+                Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable {
+                    openDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.FolderOpen, null, tint = TextPrimary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Import Backup from Files", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Restore playlists and tracks from a JSON backup file", color = TextSecondary, fontSize = 12.sp)
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
             }
             Row(
                 Modifier.fillMaxWidth().glass(RoundedCornerShape(14.dp)).clickable { confirmReset = true }.padding(14.dp),
@@ -246,8 +357,9 @@ fun SettingsScreen(repository: PlaylistRepository, playbackManager: PlaybackMana
                     Text("Reset Library to Scratch", color = DangerRed, fontWeight = FontWeight.SemiBold)
                     Text("Delete all playlists and start completely fresh", color = TextSecondary, fontSize = 12.sp)
                 }
+                Icon(Icons.Default.ChevronRight, null, tint = TextTertiary)
             }
-            Text("Playlists and tracks are stored locally on your device. You can create custom playlists or import them anytime.",
+            Text("Playlists and tracks are stored locally on your device. You can export backups, restore them anytime, or transfer to another device.",
                 color = TextTertiary, fontSize = 12.sp)
 
             Section("ABOUT")

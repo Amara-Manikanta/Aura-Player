@@ -136,6 +136,35 @@ class PlaylistRepository private constructor(private val context: Context) {
     /** Legacy alias for resetToCleanLibrary. */
     fun resetToMacLibrary() = resetToCleanLibrary()
 
+    fun exportBackupJson(): String = json.encodeToString(_playlists.value)
+
+    fun exportBackupFile(): File {
+        val backupDir = File(context.cacheDir, "backups").apply { mkdirs() }
+        val backupFile = File(backupDir, "AuraPlayer_Library_Backup.json")
+        backupFile.writeText(exportBackupJson())
+        return backupFile
+    }
+
+    fun importBackup(jsonString: String): Result<Pair<Int, Int>> {
+        return try {
+            val decoded = json.decodeFromString<List<Playlist>>(jsonString)
+            if (decoded.isEmpty()) {
+                return Result.failure(IllegalArgumentException("Backup contains no playlists"))
+            }
+            val finalPlaylists = if (decoded.none { it.id == favoritesPlaylistId || it.name.equals("Favorites", true) }) {
+                listOf(Playlist(name = "Favorites", iconName = "heart.fill", isBuiltIn = true)) + decoded
+            } else {
+                decoded
+            }
+            _playlists.value = finalPlaylists
+            savePlaylists()
+            Result.success(Pair(finalPlaylists.size, allUniqueTracks.size))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to import backup JSON", e)
+            Result.failure(e)
+        }
+    }
+
     private fun savePlaylists() {
         try {
             playlistsFile.writeText(json.encodeToString(_playlists.value))

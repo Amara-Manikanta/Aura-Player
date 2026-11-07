@@ -71,7 +71,36 @@
 
 ### Look
 - **Liquid-glass interface** on all three apps.
-- **SanDisk Sansa e260 retro theme** on iPhone, with a virtual scroll wheel (Settings → Themes).
+- **SanDisk Sansa e260 retro theme** on iPhone and Android, with an authentic virtual click-wheel, haptic tick feedback, and animated LED visualizer (Settings → Themes).
+- **Full rotation support** across vertical (portrait) and horizontal (landscape) orientations on iOS and Android.
+
+---
+
+## 📲 Android Installation (Direct APK)
+
+AuraPlayer is distributed directly as an APK to provide ad-free YouTube streaming, background playback, and custom synced lyrics without Play Store restrictions.
+
+### Step-by-Step Guide:
+
+1. **Download the APK**:
+   - Download the latest **[`AuraPlayer.apk`](https://amara-manikanta.github.io/Aura-Player/AuraPlayer.apk)** directly, or grab it from the [Releases](https://github.com/Amara-Manikanta/Aura-Player/releases) tab.
+   - If Chrome or your browser displays *"File might be harmful"*, tap **Download anyway** (this is standard on Android for any app downloaded outside the Play Store).
+
+2. **Open the Downloaded APK**:
+   - Once the download is complete, pull down your notification shade and tap **AuraPlayer.apk**.
+   - Alternatively, open your phone's **Files** or **Downloads** app and tap **AuraPlayer.apk**.
+
+3. **Allow "Install Unknown Apps" (First-time only)**:
+   - If prompted: *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings**.
+   - Turn **ON** the switch for **"Allow from this source"** (for Chrome or Files).
+   - Tap the **Back** button on your phone to return to the installer.
+
+4. **Install & Launch**:
+   - Tap **Install** (or **Update** if updating an existing version).
+   - Once completed, tap **Open** to launch Aura Player!
+
+> [!TIP]
+> **Updating in the future**: Whenever a new update is released, simply download the new APK and tap **Install**. Android will update the app in-place while safely preserving all your custom playlists, favorites, and synced lyrics.
 
 ---
 
@@ -89,7 +118,8 @@ Aura-Player/
 | | iPhone | Mac | Android |
 |---|---|---|---|
 | Playback | YouTube player in a web view | Audio through AVPlayer (stream found with `yt-dlp`); video through a web view | Media3 and YouTube |
-| Custom lyrics editor | ✅ | ✅ | not yet |
+| Custom lyrics editor | ✅ | ✅ | ✅ |
+| Retro Sansa e260 theme | ✅ | – | ✅ |
 | Mac ↔ iPhone sync | ✅ | ✅ | – |
 | Share links | ✅ | ✅ | ✅ |
 | Import shared links | ✅ | not yet | ✅ |
