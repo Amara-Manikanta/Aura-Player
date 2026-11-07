@@ -165,22 +165,35 @@ object CustomLyricsStore {
         val exact = cache[key(title, artist)]
         if (exact != null) return exact
 
+        val rawNorm = title.lowercase().filter { it.isLetterOrDigit() }.trim()
+        if (rawNorm.isNotEmpty()) {
+            val rawExact = cache["$rawNorm|"] ?: cache[rawNorm]
+            if (rawExact != null) return rawExact
+
+            for ((candidateKey, entry) in cache) {
+                val firstPart = candidateKey.split("|").firstOrNull() ?: ""
+                if (firstPart.length >= 4 && rawNorm.contains(firstPart)) {
+                    return entry
+                }
+            }
+        }
+
         val cleaned = MetadataCleaner.clean(title, artist)
         val tNorm = cleaned.cleanTitle.lowercase().filter { it.isLetterOrDigit() }.trim()
-        if (tNorm.isEmpty()) return null
+        if (tNorm.isNotEmpty()) {
+            val titleOnly = cache["$tNorm|"]
+            if (titleOnly != null) return titleOnly
 
-        val titleOnly = cache["$tNorm|"]
-        if (titleOnly != null) return titleOnly
-
-        for ((candidateKey, entry) in cache) {
-            val parts = candidateKey.split("|")
-            val firstPart = parts.firstOrNull() ?: ""
-            if (firstPart == tNorm) return entry
-        }
-        for ((candidateKey, entry) in cache) {
-            val firstPart = candidateKey.split("|").firstOrNull() ?: ""
-            if (firstPart.isNotEmpty() && (tNorm.contains(firstPart) || firstPart.contains(tNorm))) {
-                return entry
+            for ((candidateKey, entry) in cache) {
+                val parts = candidateKey.split("|")
+                val firstPart = parts.firstOrNull() ?: ""
+                if (firstPart == tNorm) return entry
+            }
+            for ((candidateKey, entry) in cache) {
+                val firstPart = candidateKey.split("|").firstOrNull() ?: ""
+                if (firstPart.isNotEmpty() && (tNorm.contains(firstPart) || firstPart.contains(tNorm))) {
+                    return entry
+                }
             }
         }
         return null

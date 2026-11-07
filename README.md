@@ -187,3 +187,10 @@ The APK is written to `android/app/build/outputs/apk/debug/`.
 ## 📄 License
 
 MIT. See [LICENSE](LICENSE).
+
+---
+
+## ⚖️ Disclaimer
+
+Aura Player is an independent open-source project and is not affiliated with, endorsed by, sponsored by, or associated with Google LLC, YouTube, Spotify, Gaana, JioSaavn, Apple Inc., or SanDisk. All product names, logos, and brands are property of their respective owners. Aura Player does not store or distribute copyrighted media files.
+

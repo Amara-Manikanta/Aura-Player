@@ -53,3 +53,5 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+
+.kotlin/
