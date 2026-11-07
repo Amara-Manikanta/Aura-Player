@@ -47,18 +47,20 @@ object DeityDetector {
 
         val isDevotional = genre.contains("devotional") ||
                 listOf(
-                    "ayyappa", "manikanta", "harivarasanam", "uyyala", "yedakeltav",
+                    "ayyappa", "manikanta", "harivarasanam", "uyyala", "yedakeltav", "pallaki", "mallepoola",
                     "shiva", "manjunatha", "lingashtakam", "mahaprana",
                     "rama", "ramadasu", "bhadra shaila", "andari bandhuvaya",
                     "venkateswara", "om namo venkatesaya", "adhivo", "annamayya",
-                    "sai baba", "shirdi", "vakratunda", "vinayaka", "swamy", "saranam"
+                    "sai baba", "shirdi", "vakratunda", "vinayaka", "swamy", "saranam",
+                    "అయ్యప్ప", "మణికంట", "పల్లకి", "శబరిమల", "శివ", "రామ", "వెంకటేశ్వర", "గోవింద", "వినాయక", "సాయి"
                 ).any { text.contains(it) }
 
         if (!isDevotional) return null
 
         return when {
             listOf("ayyappa", "manikanta", "harivarasanam", "uyyala", "yedakeltav", "sabarimala",
-                   "erumeli", "pamba", "irumudi", "bhagavan saranam", "pallikattu", "karthika").any { text.contains(it) } -> DevotionalDeity.AYYAPPA
+                   "erumeli", "pamba", "irumudi", "bhagavan saranam", "pallikattu", "karthika", "pallaki", "mallepoola",
+                   "అయ్యప్ప", "మణికంట", "పల్లకి", "శబరిమల").any { text.contains(it) } -> DevotionalDeity.AYYAPPA
             listOf("manjunatha", "shiva", "mahaprana", "lingashtakam", "brahma murari", "shankara").any { text.contains(it) } -> DevotionalDeity.SHIVA
             listOf("ramadasu", "bhadra shaila", "andari bandhuvaya", "ramayya", "kodandaram", "sitarama", "ayodhya").any { text.contains(it) } -> DevotionalDeity.RAMA
             listOf("venkateswara", "akhilanda koti", "om namo venkatesaya", "adhivo", "annamayya", "govinda").any { text.contains(it) } -> DevotionalDeity.VENKATESWARA

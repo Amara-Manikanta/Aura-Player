@@ -206,6 +206,14 @@ fun FullPlayerSheet(
                             value = progress,
                             onValueChange = { playbackManager.seekTo((it * durationMs).toLong()) },
                             modifier = Modifier.fillMaxWidth(),
+                            thumb = {
+                                Box(
+                                    Modifier
+                                        .size(14.dp)
+                                        .shadow(4.dp, CircleShape)
+                                        .background(Color.White, CircleShape)
+                                )
+                            },
                             colors = SliderDefaults.colors(
                                 thumbColor = Color.White,
                                 activeTrackColor = NeonPurple,
@@ -376,8 +384,13 @@ fun FullPlayerSheet(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
-                        t.title, color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                        t.title,
+                        color = TextPrimary,
+                        fontSize = if (t.title.length > 20) 19.sp else 21.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 24.sp
                     )
                     Text(
                         t.artist, color = TextSecondary, fontSize = 14.sp,
@@ -436,6 +449,14 @@ fun FullPlayerSheet(
                 value = progress,
                 onValueChange = { playbackManager.seekTo((it * durationMs).toLong()) },
                 modifier = Modifier.fillMaxWidth(),
+                thumb = {
+                    Box(
+                        Modifier
+                            .size(14.dp)
+                            .shadow(4.dp, CircleShape)
+                            .background(Color.White, CircleShape)
+                    )
+                },
                 colors = SliderDefaults.colors(
                     thumbColor = Color.White,
                     activeTrackColor = NeonPurple,
